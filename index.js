@@ -1,6 +1,6 @@
 const https = require("https");
 
-const API_KEY = process.env.ANTHROPIC_API_KEY || "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";
+const API_KEY = process.env.ANTHROPIC_API_KEY || "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";
 
 require("http").createServer((req, res) => {
   const headers = {
