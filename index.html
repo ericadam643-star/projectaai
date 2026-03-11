@@ -90,6 +90,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2540,17 +2541,51 @@ function SupervisorDashboard({ supervisor, onBack }) {
                   <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
                     {[1,2,3,4,5].map(n => {
                       const hasSub = s.submittedChapters && s.submittedChapters[n];
+                      const fbStatus = s.feedbackStatus && s.feedbackStatus[n];
+                      // Color based on review status
+                      const pillColor = !hasSub ? "var(--grey3)"
+                        : fbStatus === "approved" ? "#4CAF50"
+                        : fbStatus === "minor" ? "#FFC107"
+                        : fbStatus === "major" ? "#FF7043"
+                        : fbStatus ? "var(--teal)"
+                        : "var(--teal)";
+                      const pillBg = !hasSub ? "rgba(255,255,255,0.03)"
+                        : fbStatus === "approved" ? "rgba(76,175,80,0.12)"
+                        : fbStatus === "minor" ? "rgba(255,193,7,0.12)"
+                        : fbStatus === "major" ? "rgba(255,112,67,0.12)"
+                        : "rgba(0,201,167,0.1)";
+                      const pillBorder = !hasSub ? "rgba(255,255,255,0.08)"
+                        : fbStatus === "approved" ? "rgba(76,175,80,0.35)"
+                        : fbStatus === "minor" ? "rgba(255,193,7,0.35)"
+                        : fbStatus === "major" ? "rgba(255,112,67,0.35)"
+                        : "rgba(0,201,167,0.3)";
+                      const pillLabel = !hasSub ? "Ch." + n
+                        : fbStatus === "approved" ? "Ch." + n + " ✓"
+                        : fbStatus === "minor" ? "Ch." + n + " ~"
+                        : fbStatus === "major" ? "Ch." + n + " !"
+                        : fbStatus ? "Ch." + n + " ✓"
+                        : "Ch." + n + " ●";
                       return (
                         <button key={n}
                           onClick={() => { if (hasSub) { setActiveStudent(s); setActiveChapter(n); setView("chapter"); } }}
-                          style={{ background: hasSub ? "rgba(0,201,167,0.1)" : "rgba(255,255,255,0.03)", border:"1px solid " + (hasSub ? "rgba(0,201,167,0.3)" : "rgba(255,255,255,0.08)"), borderRadius:8, padding:"7px 12px", cursor: hasSub ? "pointer" : "default", fontFamily:"var(--font-d)", fontWeight:600, fontSize:12, color: hasSub ? "var(--teal)" : "var(--grey3)" }}
-                          onMouseEnter={e => { if (hasSub) { e.currentTarget.style.background = "rgba(0,201,167,0.18)"; } }}
-                          onMouseLeave={e => { if (hasSub) { e.currentTarget.style.background = "rgba(0,201,167,0.1)"; } }}>
-                          Ch.{n} {hasSub ? "✓" : ""}
+                          style={{ background: pillBg, border:"1px solid " + pillBorder, borderRadius:8, padding:"7px 12px", cursor: hasSub ? "pointer" : "default", fontFamily:"var(--font-d)", fontWeight:600, fontSize:12, color: pillColor }}
+                          onMouseEnter={e => { if (hasSub) { e.currentTarget.style.opacity = "0.8"; } }}
+                          onMouseLeave={e => { if (hasSub) { e.currentTarget.style.opacity = "1"; } }}
+                          title={!hasSub ? "Not submitted" : fbStatus ? fbStatus : "Submitted — awaiting review"}>
+                          {pillLabel}
                         </button>
                       );
                     })}
                   </div>
+                  {/* Legend */}
+                  {Object.keys(s.feedbackStatus || {}).length > 0 && (
+                    <div style={{ display:"flex", gap:10, marginTop:6, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:10, color:"var(--grey3)" }}>● Pending</span>
+                      <span style={{ fontSize:10, color:"#4CAF50" }}>✓ Approved</span>
+                      <span style={{ fontSize:10, color:"#FFC107" }}>~ Minor revision</span>
+                      <span style={{ fontSize:10, color:"#FF7043" }}>! Major revision</span>
+                    </div>
+                  )}
 
                   {subCount === 0 && (
                     <div style={{ marginTop:12, fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>No chapters submitted yet.</div>
