@@ -1,0 +1,2881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0D1B2A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Projecta — Smarter academic projects for Nigerian universities" />
+  <title>Projecta — Smarter Projects</title>
+
+  <!-- React + Babel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <!-- Firebase (for cross-device accounts) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ── Firebase config — replace with your own from console.firebase.google.com ──
+    const firebaseConfig = {
+      apiKey:            "AIzaSyB7rrUNtrjpEXMYV_p6MAR8YVhK_-G1JSI",
+      authDomain:        "projecta-app-8296e.firebaseapp.com",
+      projectId:         "projecta-app-8296e",
+      storageBucket:     "projecta-app-8296e.firebasestorage.app",
+      messagingSenderId: "779500434418",
+      appId:             "1:779500434418:web:9c068868b315e3d559316b"
+    };
+
+    const _fbConfigured = firebaseConfig.apiKey !== "AIzaSyD_PLACEHOLDER_REPLACE_ME";
+    if (_fbConfigured) {
+      firebase.initializeApp(firebaseConfig);
+      window._db = firebase.firestore();
+    }
+
+    // ── Unified storage: Firestore (cross-device) + localStorage cache ──────
+    window.storage = {
+      get: async (key) => {
+        if (window._db) {
+          try {
+            const doc = await window._db.collection("pjt").doc(key).get();
+            if (doc.exists) {
+              const val = doc.data().v;
+              try { localStorage.setItem("pjt_" + key, val); } catch(e) {}
+              return { key, value: val };
+            }
+          } catch(e) {}
+        }
+        try { const v = localStorage.getItem("pjt_" + key); if (v !== null) return { key, value: v }; } catch(e) {}
+        return null;
+      },
+      set: async (key, val) => {
+        if (window._db) { try { await window._db.collection("pjt").doc(key).set({ v: val, t: Date.now() }); } catch(e) {} }
+        try { localStorage.setItem("pjt_" + key, val); } catch(e) {}
+        return { key, value: val };
+      },
+      delete: async (key) => {
+        if (window._db) { try { await window._db.collection("pjt").doc(key).delete(); } catch(e) {} }
+        try { localStorage.removeItem("pjt_" + key); } catch(e) {}
+        return { key, deleted: true };
+      }
+    };
+    window._fbConfigured = _fbConfigured;
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0D1B2A; -webkit-tap-highlight-color: transparent; }
+    #root { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+
+
+
+
+
+
+
+
+
+
+
+
+function useBreakpoint() {
+  const [bp, setBp] = useState(() => {
+    const w = window.innerWidth;
+    return { isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 };
+  });
+  useEffect(() => {
+    const h = () => { const w = window.innerWidth; setBp({ isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 }); };
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return bp;
+}
+
+
+const STYLES = `
+  @import url('https://api.fontshare.com/v2/css?f[]=satoshi@700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0D1B2A; --navy2: #1A2E42; --teal: #00C9A7; --teal2: #00A688;
+    --teal3: #007A65; --white: #FFFFFF; --grey2: #C4C9D0; --grey3: #8892A0;
+    --font-d: 'Satoshi', 'Syne', sans-serif; --font-b: 'DM Sans', sans-serif;
+  }
+  html, body { height: 100%; background: var(--navy); }
+  #root { height: 100%; font-family: var(--font-b); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--teal3); border-radius: 4px; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .fu { animation: fadeUp 0.45s ease both; }
+  .fi { animation: fadeIn 0.35s ease both; }
+  [contenteditable]:empty:before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; display: block; font-family: Georgia, serif; font-style: italic; }
+  [contenteditable] h2 { font-size:20px; font-weight:700; color:#111827; margin:14px 0 6px; }
+  [contenteditable] h3 { font-size:16px; font-weight:700; color:#374151; margin:10px 0 4px; }
+  [contenteditable] p  { margin: 0 0 8px; color:#111827; }
+  [contenteditable] ul, [contenteditable] ol { padding-left:24px; margin:6px 0 10px; color:#111827; }
+  [contenteditable] li { margin-bottom:4px; line-height:1.9; }
+  [contenteditable] strong { color:#111827; font-weight:700; }
+  [contenteditable] em { color:#374151; }
+  [contenteditable] { caret-color: #00C9A7; }
+
+  /* ── Responsive layout ── */
+  .rp-container { width:100%; max-width:680px; margin:0 auto; padding:0 18px; }
+  .rp-nav { padding:13px 18px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--navy); z-index:10; }
+  .rp-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  .rp-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+  .rp-grid-4 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+  @media (min-width:1024px) {
+    .rp-container { max-width:900px; padding:0 48px; }
+    .rp-nav { padding:14px 48px; }
+    .rp-grid-4 { grid-template-columns:repeat(4,1fr); }
+    .rp-desktop-2col { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+    .rp-sidebar-layout { flex-direction:row !important; height:calc(100vh - 57px) !important; }
+    .rp-sections-panel { width:230px !important; flex-direction:column !important; overflow-y:auto !important; overflow-x:hidden !important; border-right:1px solid rgba(255,255,255,0.07) !important; border-bottom:none !important; }
+    .rp-editor-panel { overflow:hidden; }
+    .rp-ai-panel { width:310px !important; border-left:1px solid rgba(255,255,255,0.07) !important; border-top:none !important; }
+    .rp-hide-desktop { display:none !important; }
+    .rp-show-desktop { display:block !important; }
+    .rp-chapters-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px !important; }
+    .rp-students-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  }
+
+  @media (min-width:640px) and (max-width:1023px) {
+    .rp-container { max-width:700px; padding:0 28px; }
+    .rp-nav { padding:13px 28px; }
+    .rp-sidebar-layout { flex-direction:row !important; height:calc(100vh - 57px) !important; }
+    .rp-sections-panel { width:180px !important; flex-direction:column !important; overflow-y:auto !important; overflow-x:hidden !important; border-right:1px solid rgba(255,255,255,0.07) !important; border-bottom:none !important; }
+    .rp-ai-panel { width:250px !important; border-left:1px solid rgba(255,255,255,0.07) !important; border-top:none !important; }
+  }
+
+  @media (max-width:639px) {
+    .rp-container { padding:0 16px; }
+    .rp-sidebar-layout { flex-direction:column !important; height:auto !important; overflow:visible !important; }
+    .rp-sections-panel { width:100% !important; flex-direction:row !important; overflow-x:auto !important; overflow-y:hidden !important; border-right:none !important; border-bottom:1px solid rgba(255,255,255,0.07) !important; }
+    .rp-ai-panel { width:100% !important; border-left:none !important; border-top:1px solid rgba(255,255,255,0.07) !important; }
+    .rp-show-desktop { display:none !important; }
+    .rp-grid-3 { grid-template-columns:repeat(3,1fr); }
+  }
+`;
+
+const Spinner = () => (
+  <span style={{ display:"inline-block", width:15, height:15, border:"2px solid rgba(0,201,167,0.3)", borderTop:"2px solid var(--teal)", borderRadius:"50%", animation:"spin 0.7s linear infinite", verticalAlign:"middle", marginRight:7 }} />
+);
+
+const Dot = ({ active }) => active
+  ? <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--teal)", flexShrink:0, display:"inline-block" }} />
+  : <span style={{ width:6, height:6, borderRadius:"50%", border:"1px solid var(--grey3)", flexShrink:0, display:"inline-block" }} />;
+
+// ── Projecta Logo SVG ────────────────────────────────────────────────────────
+// Open P arc = structure & knowledge. Rising diagonal = student progress.
+// Teal dot at baseline = destination: your completed project.
+function ProjectaIcon({ size = 80, dark = true }) {
+  const stem = dark ? "white" : "#0D1B2A";
+  const bg   = dark ? "#0D1B2A" : "none";
+  const scale = size / 84;
+  return (
+    <svg width={size} height={size} viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {dark && <rect width="84" height="84" rx="20" fill="#0D1B2A"/>}
+      <path
+        d="M10 72 L10 17 C10 17 10 6 22 6 L38 6 C59 6 71 19 71 37 C71 55 59 67 38 67 L25 67"
+        stroke={stem} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none"
+      />
+      <line x1="10" y1="72" x2="48" y2="34" stroke="#00C9A7" strokeWidth="7" strokeLinecap="round"/>
+      <circle cx="71" cy="72" r="6.5" fill="#00C9A7"/>
+    </svg>
+  );
+}
+
+function ProjectaWordmark({ size = 80 }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
+      <div style={{ boxShadow:"0 8px 28px rgba(0,201,167,0.28)", borderRadius: Math.round(22 * size / 100) }}>
+        <ProjectaIcon size={size} />
+      </div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontFamily:"'Satoshi', 'Poppins', 'Syne', sans-serif", fontSize: size * 0.55, fontWeight:700, color:"#FFFFFF", letterSpacing:"-1.5px", lineHeight:1 }}>projecta</div>
+        <div style={{ fontFamily:"var(--font-b)", fontSize: size * 0.14, fontWeight:500, color:"#00C9A7", letterSpacing:"0.18em", textTransform:"uppercase", marginTop:4 }}>smarter projects</div>
+      </div>
+    </div>
+  );
+}
+
+const CHAPTERS = [
+  { num:1, title:"Introduction",
+    desc:"Establishes research context, identifies the problem, states objectives and research questions, and justifies the significance of the study.",
+    sections:[
+      { name:"Background of the Study",    par:"3-4 paragraphs", guide:"Provide historical and contextual background. Move from broad context to the specific gap your research addresses." },
+      { name:"Statement of the Problem",   par:"2 paragraphs",   guide:"Define the specific problem clearly. Explain what is missing or unknown and the consequences of leaving it unaddressed." },
+      { name:"Objectives of the Study",    par:"1 paragraph",    guide:"List objectives in numbered form. Each should begin with an action verb: examine, assess, determine, evaluate." },
+      { name:"Research Questions",         par:"1 paragraph",    guide:"State research questions numbered to match objectives. Each must be specific and answerable with your methodology." },
+      { name:"Significance of the Study",  par:"2 paragraphs",   guide:"Explain theoretical and practical contributions. Who benefits and how does this advance knowledge in the field?" },
+      { name:"Scope and Limitations",      par:"1-2 paragraphs", guide:"Define what the study covers and what it deliberately excludes. Acknowledge methodological limitations honestly." },
+      { name:"Organisation of the Study",  par:"1 paragraph",    guide:"Briefly describe the structure of each remaining chapter in one or two sentences each." },
+    ]
+  },
+  { num:2, title:"Literature Review",
+    desc:"Reviews, synthesises, and critically evaluates existing academic work relevant to your topic. Identifies gaps your study fills.",
+    sections:[
+      { name:"Introduction",           par:"1 paragraph",    guide:"State what this chapter covers and how it is organised. Signal the themes you will address." },
+      { name:"Conceptual Framework",   par:"2-3 paragraphs", guide:"Define key concepts. For each major variable provide a scholarly definition, trace its evolution, and explain how you use it." },
+      { name:"Theoretical Framework",  par:"2-3 paragraphs", guide:"Identify the theory underpinning your study. Explain its origins, key propositions, and why it is the best lens for your research." },
+      { name:"Empirical Review",       par:"4-6 paragraphs", guide:"Summarise previous studies related to your topic. Group thematically, identify agreements, contradictions, and gaps." },
+      { name:"Gap in Literature",      par:"1-2 paragraphs", guide:"State explicitly what existing literature has not addressed. Be specific about the context, methodology, or variable that is missing." },
+      { name:"Chapter Summary",        par:"1 paragraph",    guide:"Summarise key themes reviewed and link directly to the research questions stated in Chapter 1." },
+    ]
+  },
+  { num:3, title:"Research Methodology",
+    desc:"Explains and justifies the research design, data sources, methods of data collection, and analytical techniques used.",
+    sections:[
+      { name:"Introduction",                  par:"1 paragraph",    guide:"State the purpose of this chapter and preview its structure." },
+      { name:"Research Design",               par:"1-2 paragraphs", guide:"Identify and justify your design: quantitative, qualitative, or mixed. Explain why it suits your research questions." },
+      { name:"Data Sources and Collection",   par:"2 paragraphs",   guide:"Describe your data sources. For secondary data, name specific databases or institutions and justify their reliability." },
+      { name:"Model Specification",           par:"2-3 paragraphs", guide:"Present your analytical model. For quantitative studies, state your model equation and define each variable." },
+      { name:"Method of Data Analysis",       par:"1-2 paragraphs", guide:"Explain the statistical technique and justify why it is the most appropriate for your data and research questions." },
+      { name:"Validity and Reliability",      par:"1 paragraph",    guide:"Explain how you ensured validity and reliability. Address potential sources of bias and how you mitigated them." },
+    ]
+  },
+  { num:4, title:"Data Presentation and Analysis",
+    desc:"Presents your findings systematically, analyses them using your chosen methods, and interprets results in relation to your research questions.",
+    sections:[
+      { name:"Introduction",               par:"1 paragraph",    guide:"State what this chapter does, how it is organised, and what analytical approach is used." },
+      { name:"Descriptive Statistics",     par:"2 paragraphs",   guide:"Present a summary of your data. Provide descriptive statistics for all key variables in a table, then discuss it in text." },
+      { name:"Main Analysis and Results",  par:"4-6 paragraphs", guide:"Present analytical results addressing each research question. Interpret all tables and figures in text." },
+      { name:"Discussion of Findings",     par:"3-4 paragraphs", guide:"Interpret results in context of your research questions and literature from Chapter 2. Explain agreements or contradictions." },
+    ]
+  },
+  { num:5, title:"Summary, Conclusion and Recommendations",
+    desc:"Summarises the entire study, draws conclusions from findings, and makes practical and policy recommendations.",
+    sections:[
+      { name:"Introduction",                    par:"1 paragraph",    guide:"State that this chapter presents the summary, conclusions, and recommendations arising from the study." },
+      { name:"Summary of the Study",            par:"3-4 paragraphs", guide:"Summarise each chapter briefly: what you set out to do, what the literature said, how you researched, what you found." },
+      { name:"Conclusions",                     par:"2-3 paragraphs", guide:"Draw clear conclusions that directly answer your research questions. State what the findings mean." },
+      { name:"Recommendations",                 par:"2-3 paragraphs", guide:"Make specific, actionable recommendations addressed to identifiable audiences. Ground each in a specific finding." },
+      { name:"Contribution to Knowledge",       par:"1 paragraph",    guide:"State what new knowledge this study has contributed. Reference the gap from Chapter 2 and how your findings address it." },
+      { name:"Limitations and Future Research", par:"1-2 paragraphs", guide:"Acknowledge limitations and suggest specific directions for future research that could build on your findings." },
+    ]
+  },
+];
+
+// ── In-memory supervisor cache — survives role switching in same session ─────
+const SUP_CACHE = {};
+// ── In-memory accounts store — used when window.storage is unavailable ──────
+const ACCOUNTS_CACHE = {};
+
+// ── Storage wrappers ─────────────────────────────────────────────────────────
+// window.storage  = Anthropic artifact storage — SHARED across all devices ✓
+// localStorage    = this device only, used as a fast cache
+//
+// Read order:  window.storage first (cross-device), then localStorage cache
+// Write order: window.storage first (cross-device), then localStorage cache
+// This means accounts created on any device are visible on every other device.
+
+// ── Timeout helper — prevents Firestore from hanging forever ────────────────
+const withTimeout = (promise, ms) => {
+  const timer = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms));
+  return Promise.race([promise, timer]);
+};
+
+const safeGet = async (key) => {
+  // 1. window.storage — shared across devices (primary source of truth)
+  try {
+    if (window.storage) {
+      const r = await withTimeout(window.storage.get(key), 5000);
+      if (r && r.value !== undefined && r.value !== null) {
+        try { localStorage.setItem("pjt_" + key, r.value); } catch(e) {}
+        return r;
+      }
+    }
+  } catch(e) {}
+  // 2. localStorage — same-device fallback
+  try {
+    const v = localStorage.getItem("pjt_" + key);
+    if (v !== null) return { key, value: v };
+  } catch(e) {}
+  return null;
+};
+
+const safeSet = async (key, val) => {
+  // Always write localStorage first so UI never hangs
+  try { localStorage.setItem("pjt_" + key, val); } catch(e) {}
+  // Then write to Firestore with timeout (non-blocking on failure)
+  try { if (window.storage) await withTimeout(window.storage.set(key, val), 6000); } catch(e) {}
+};
+
+const safeDel = async (key) => {
+  try { localStorage.removeItem("pjt_" + key); } catch(e) {}
+  try { if (window.storage) await withTimeout(window.storage.delete(key), 5000); } catch(e) {}
+};
+
+// ── Storage keys ────────────────────────────────────────────────────────────
+const STORAGE_KEY  = "projecta_profile";
+const ROLE_KEY     = "projecta_role";
+const ACCOUNTS_KEY = "projecta_accounts";
+
+// ── Supervisor code generator ────────────────────────────────────────────────
+function makeCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let c = "";
+  for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c.slice(0,3) + "-" + c.slice(3);
+}
+
+async function callAI(messages, systemPrompt) {
+  // Route through a lightweight proxy to avoid CORS restrictions
+  // The proxy simply forwards the request to Anthropic's API server-side
+  const PROXY = "https://projectaai-production.up.railway.app/ai";
+
+  try {
+    const res = await fetch(PROXY, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system: systemPrompt, messages }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "API error " + res.status);
+    return data.text || "";
+  } catch(e) {
+    throw new Error("AI unavailable: " + e.message);
+  }
+}
+
+function buildDownload(project, chapter, drafts) {
+  const today = new Date().toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" });
+  const wordCount = Object.values(drafts).join(" ").split(/\s+/).filter(Boolean).length;
+
+  const sectionRows = chapter.sections.map(function(s, i) {
+    const text = drafts[i] || "";
+    const paras = text.trim()
+      ? text.split(/\n+/).filter(function(p) { return p.trim(); }).map(function(p) { return "<p>" + p.trim() + "</p>"; }).join("")
+      : "<p style=\"color:#bbb;font-style:italic\">[No content written yet]</p>";
+    return "<div style=\"margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid #e8eaed\">" +
+      "<h3 style=\"font-family:Inter,sans-serif;font-size:10.5pt;font-weight:600;color:#0D1B2A;margin-bottom:3px\">" +
+      chapter.num + "." + (i + 1) + "  " + s.name + "</h3>" +
+      "<p style=\"font-family:Inter,sans-serif;font-size:8pt;color:#007A65;margin-bottom:10px\"><em>Expected: " + s.par + "</em></p>" +
+      paras + "</div>";
+  }).join("");
+
+  const css =
+    "@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap');" +
+    "*{box-sizing:border-box;margin:0;padding:0}" +
+    "body{font-family:'Crimson Pro',Georgia,serif;font-size:12pt;line-height:1.9;color:#1a1a2e;background:#fff}" +
+    ".page{max-width:680px;margin:0 auto;padding:56px}" +
+    ".hdr{border-bottom:3px solid #0D1B2A;padding-bottom:18px;margin-bottom:32px}" +
+    ".uni{font-family:Inter,sans-serif;font-size:8.5pt;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#007A65;margin-bottom:5px}" +
+    ".topic{font-size:13.5pt;font-weight:600;color:#0D1B2A;line-height:1.4;margin-bottom:6px}" +
+    ".meta{font-family:Inter,sans-serif;font-size:8.5pt;color:#666;margin-top:3px}" +
+    ".badge{display:inline-block;background:#D6F5F0;border:1px solid #00C9A7;border-radius:20px;padding:3px 11px;font-family:Inter,sans-serif;font-size:8pt;font-weight:600;color:#007A65;margin-top:9px}" +
+    ".clabel{font-family:Inter,sans-serif;font-size:8.5pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#00C9A7;margin-top:28px;margin-bottom:7px}" +
+    "h1{font-size:21pt;font-weight:600;color:#0D1B2A;line-height:1.2;margin-bottom:9px}" +
+    ".cdesc{font-size:10pt;color:#555;font-style:italic;line-height:1.6;border-left:3px solid #00C9A7;padding-left:12px;margin-bottom:28px}" +
+    "p{margin-bottom:11px;text-align:justify;text-indent:1.4em}" +
+    "p:first-of-type{text-indent:0}" +
+    ".ftr{margin-top:44px;padding-top:14px;border-top:2px solid #0D1B2A;display:flex;justify-content:space-between;font-family:Inter,sans-serif;font-size:8pt;color:#888}" +
+    "@media print{.page{padding:36px 44px}}";
+
+  const html =
+    "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'/>" +
+    "<title>Chapter " + chapter.num + " - " + chapter.title + "</title>" +
+    "<style>" + css + "</style></head><body><div class='page'>" +
+    "<div class='hdr'>" +
+    "<div class='uni'>" + project.uni + " - Department of " + project.dept + "</div>" +
+    "<div class='topic'>" + project.topic + "</div>" +
+    "<div class='meta'>Chapter " + chapter.num + " of 5  |  " + wordCount + " words  |  " + today + "</div>" +
+    "<div class='badge'>Submitted to Supervisor</div>" +
+    "</div>" +
+    "<div class='clabel'>Chapter " + chapter.num + "</div>" +
+    "<h1>" + chapter.title + "</h1>" +
+    "<p class='cdesc'>" + chapter.desc + "</p>" +
+    sectionRows +
+    "<div class='ftr'>" +
+    "<span style='font-weight:700;color:#00C9A7'>projecta</span>" +
+    "<span>Chapter " + chapter.num + " - " + chapter.title + " - " + today + "</span>" +
+    "<span>" + wordCount + " words</span>" +
+    "</div></div></body></html>";
+
+  const encoded = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+  const a = document.createElement("a");
+  a.href = encoded;
+  a.download = "Projecta_Ch" + chapter.num + "_" + chapter.title.replace(/\s+/g, "_") + ".html";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function WelcomeScreen({ onStart, savedProject, onContinue, onClear, onBack }) {
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column" }}>
+      <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center" }}>
+        <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
+      </div>
+      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+      <div style={{ width:"100%", maxWidth:380, textAlign:"center" }} className="fu">
+        <div style={{ margin:"0 auto 28px" }}>
+          <ProjectaWordmark size={90} />
+        </div>
+        <div style={{ fontSize:14, color:"var(--grey3)", marginBottom:28, lineHeight:1.6 }}>Your AI-powered final year project guide</div>
+
+        {savedProject ? (
+          <>
+            <div style={{ background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:12, padding:"14px 16px", marginBottom:14, textAlign:"left" }}>
+              <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:5 }}>Saved project</div>
+              <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", lineHeight:1.4, marginBottom:3 }}>{savedProject.topic}</div>
+              <div style={{ fontSize:11, color:"var(--grey3)" }}>{savedProject.dept} · {savedProject.uni}</div>
+              <div style={{ fontSize:11, color:"var(--teal)", marginTop:5 }}>
+                {Object.keys(savedProject.submitted || {}).length} of 5 chapters submitted
+              </div>
+            </div>
+            <button onClick={onContinue}
+              style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:12, padding:"15px 0", fontFamily:"var(--font-d)", fontWeight:800, fontSize:16, cursor:"pointer", marginBottom:10 }}
+              onMouseEnter={e => { e.target.style.background = "var(--teal2)"; }}
+              onMouseLeave={e => { e.target.style.background = "var(--teal)"; }}
+            >Continue my project</button>
+            <button onClick={onClear}
+              style={{ width:"100%", background:"transparent", color:"var(--grey3)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 0", fontFamily:"var(--font-d)", fontWeight:600, fontSize:14, cursor:"pointer", marginBottom:14 }}
+              onMouseEnter={e => { e.target.style.borderColor = "rgba(255,255,255,0.25)"; e.target.style.color = "var(--white)"; }}
+              onMouseLeave={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.color = "var(--grey3)"; }}
+            >Start a new project</button>
+          </>
+        ) : (
+          <>
+            <button onClick={onStart}
+              style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:12, padding:"15px 0", fontFamily:"var(--font-d)", fontWeight:800, fontSize:16, cursor:"pointer", marginBottom:14 }}
+              onMouseEnter={e => { e.target.style.background = "var(--teal2)"; }}
+              onMouseLeave={e => { e.target.style.background = "var(--teal)"; }}
+            >Start my project</button>
+          </>
+        )}
+        <div style={{ fontSize:11, color:"var(--grey3)" }}>Free · Built for Nigerian universities</div>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+const DEPTS = ["Economics","Accounting","Business Administration","Banking & Finance","Public Administration","Political Science","Sociology","Mass Communication","Law","Computer Science","Engineering","Agriculture","Nursing / Medical Sciences","Education","Other"];
+
+function SetupScreen({ onSubmit, onBack }) {
+  const [studentName, setStudentName] = useState("");
+  const [topic,       setTopic]       = useState("");
+  const [dept,        setDept]        = useState("");
+  const [uni,         setUni]         = useState("");
+  const [supervisor,  setSupervisor]  = useState("");
+  const ok = studentName.trim().length > 2 && topic.trim().length > 8 && dept && uni.trim().length > 3 && supervisor.trim().length === 7;
+
+  const inp = { width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:10, padding:"13px 16px", color:"var(--white)", fontSize:14, fontFamily:"var(--font-b)", outline:"none" };
+  const lbl = { display:"block", fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:7 };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column" }}>
+      <div style={{ padding:"16px 22px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:12 }}>
+        <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Sign out</button>
+        <ProjectaIcon size={30} />
+      </div>
+      <div style={{ flex:1, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 24px" }}>
+        <div style={{ width:"100%", maxWidth:520, margin:"0 auto" }} className="fu">
+          <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", marginBottom:8 }}>Set up your project</div>
+          <div style={{ fontSize:14, color:"var(--grey3)", marginBottom:28, lineHeight:1.6 }}>Tell Projecta about yourself and your research. Your supervisor will be connected automatically.</div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>Your Full Name</label>
+            <input style={inp} placeholder="e.g. Chisom Okafor" value={studentName} onChange={e => setStudentName(e.target.value)} />
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>Project Topic</label>
+            <input style={inp} placeholder="e.g. The Effect of Monetary Policy on Inflation in Nigeria" value={topic} onChange={e => setTopic(e.target.value)} />
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>Department</label>
+            <select style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:10, padding:"13px 16px", fontSize:14, fontFamily:"var(--font-b)", outline:"none", cursor:"pointer", color: dept ? "var(--white)" : "var(--grey3)" }} value={dept} onChange={e => setDept(e.target.value)}>
+              <option value="" disabled style={{ background:"var(--navy2)" }}>Select your department</option>
+              {DEPTS.map(d => <option key={d} value={d} style={{ background:"var(--navy2)", color:"var(--white)" }}>{d}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>University</label>
+            <input style={inp} placeholder="e.g. University of Mkar, Benue State" value={uni} onChange={e => setUni(e.target.value)} />
+          </div>
+
+          <div style={{ marginBottom:28 }}>
+            <label style={lbl}>Supervisor Code</label>
+            <input style={{ ...inp, textTransform:"uppercase", letterSpacing:"3px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:18 }}
+              placeholder="e.g. BEL-4A2"
+              value={supervisor}
+              onChange={e => setSupervisor(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,"").slice(0,7))}
+              maxLength={7}
+            />
+            <div style={{ fontSize:11, color:"var(--grey3)", marginTop:6 }}>Ask your supervisor for their 6-character Projecta code.</div>
+          </div>
+
+          <button onClick={() => onSubmit({ studentName, topic, dept, uni, supervisorCode: supervisor.trim() })} disabled={!ok}
+            style={{ width:"100%", background: ok ? "var(--teal)" : "rgba(0,201,167,0.2)", color: ok ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:10, padding:"14px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor: ok ? "pointer" : "not-allowed" }}>
+            Generate my chapter structure
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSubmission }) {
+  const [chapterFeedback, setChapterFeedback] = useState({});
+  const [checkingFeedback, setCheckingFeedback] = useState(false);
+  const [readFeedback, setReadFeedback] = useState({});
+
+  const loadFeedback = async () => {
+    if (!project.supervisorCodeKey) return;
+    setCheckingFeedback(true);
+    const fb = {};
+    // Always check SUP_CACHE first (same-session supervisor)
+    const prof = SUP_CACHE[project.supervisorCodeKey];
+    if (prof && prof.feedback && prof.feedback[project.studentName]) {
+      const cached = prof.feedback[project.studentName];
+      Object.keys(cached).forEach(k => { fb[k] = cached[k]; });
+    }
+    // Always also check storage (cross-session or different browser)
+    for (let n = 1; n <= 5; n++) {
+      const sKey = project.studentName.trim().toLowerCase().replace(/\s+/g,"_");
+      const fbKey = project.supervisorCodeKey + "_fb_" + sKey + "_ch" + n;
+      const res = await safeGet(fbKey);
+      if (res && res.value) fb[n] = JSON.parse(res.value);
+    }
+    // Normalise all keys to numbers so chapterFeedback[1] always works
+    const normalised = {};
+    Object.keys(fb).forEach(k => { normalised[parseInt(k)] = fb[k]; });
+    setChapterFeedback(normalised);
+    setCheckingFeedback(false);
+  };
+
+  useEffect(() => { loadFeedback(); }, [project.supervisorCodeKey, project.studentName]);
+  const submittedCount = Object.keys(project.submitted || {}).length;
+  const chStatusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
+  const chStatusLabel = { pending:"Pending review", approved:"✓ Approved", minor:"Minor revision needed", major:"Major revision needed" };
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column" }}>
+      <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, background:"var(--navy)", zIndex:10 }}>
+        <ProjectaIcon size={30} />
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {project.supervisorCodeKey && (
+            <button onClick={loadFeedback} disabled={checkingFeedback}
+              style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 12px", color: checkingFeedback ? "var(--grey3)" : "var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+              {checkingFeedback ? "Checking..." : "↻ Check feedback"}
+            </button>
+          )}
+          <button onClick={onHome} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
+          <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>New project</button>
+        </div>
+      </div>
+      <div style={{ flex:1, padding:"28px 0" }}><div className="rp-container">
+        <div style={{ marginBottom:24 }} className="fu">
+          <div style={{ fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>{project.dept} - {project.uni}</div>
+          <div style={{ fontFamily:"var(--font-d)", fontSize:20, fontWeight:700, color:"var(--white)", lineHeight:1.3, marginBottom:6 }}>{project.topic}</div>
+          <div style={{ fontSize:13, color:"var(--grey3)", marginBottom: project.supervisorName ? 8 : 0 }}>Select any chapter to start writing.</div>
+          {project.supervisorName && (
+            <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"5px 14px", marginTop:4 }}>
+              <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--teal)", display:"inline-block", flexShrink:0 }} />
+              <span style={{ fontSize:11, color:"var(--grey2)" }}>Connected to supervisor: <span style={{ color:"var(--teal)", fontWeight:700 }}>{project.supervisorName}</span></span>
+            </div>
+          )}
+        </div>
+        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:8, height:5, marginBottom:28, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:(submittedCount * 20) + "%", background:"var(--teal)", borderRadius:8, transition:"width 0.5s" }} />
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {CHAPTERS.map(function(ch, i) {
+            const isSubmitted = project.submitted && project.submitted[ch.num];
+            const isDone = (project.completed || 0) > i;
+            const isActive = (project.completed || 0) === i;
+            return (
+              <div key={ch.num} className="fu" style={{ animationDelay: (i * 0.06) + "s" }} onClick={() => onSelect(ch)}>
+                <div
+                  style={{ background: isDone ? "rgba(0,201,167,0.07)" : isActive ? "var(--navy2)" : "rgba(255,255,255,0.03)", border:"1px solid " + (isDone ? "rgba(0,201,167,0.28)" : isActive ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.07)"), borderRadius:12, padding:"16px 18px", cursor:"pointer", transition:"all 0.18s", display:"flex", alignItems:"flex-start", gap:14 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isDone ? "rgba(0,201,167,0.28)" : isActive ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                >
+                  <div style={{ width:38, height:38, borderRadius:9, flexShrink:0, background: isDone ? "var(--teal)" : isActive ? "rgba(0,201,167,0.14)" : "rgba(255,255,255,0.05)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, color: isDone ? "var(--navy)" : isActive ? "var(--teal)" : "var(--grey3)" }}>
+                    {isDone ? "+" : "0" + ch.num}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)", marginBottom:4 }}>Chapter {ch.num}: {ch.title}</div>
+                    <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.5 }}>{ch.desc}</div>
+                    <div style={{ marginTop:8, display:"flex", gap:7, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.05)", borderRadius:5, padding:"2px 7px" }}>{ch.sections.length} sections</span>
+                      {isSubmitted && !chapterFeedback[ch.num] && <span style={{ fontSize:10, color:"#4CAF50", background:"rgba(76,175,80,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>✓ Submitted</span>}
+                      {isSubmitted && chapterFeedback[ch.num] && !readFeedback[ch.num] && (
+                        <span style={{ fontSize:10, color:"#FFC107", background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
+                          💬 New feedback
+                        </span>
+                      )}
+                      {isSubmitted && chapterFeedback[ch.num] && readFeedback[ch.num] && chapterFeedback[ch.num].status !== "pending" && (
+                        <span style={{ fontSize:10, color: chStatusColor[chapterFeedback[ch.num].status], background:"rgba(255,255,255,0.04)", border:"1px solid " + chStatusColor[chapterFeedback[ch.num].status] + "44", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
+                          {chStatusLabel[chapterFeedback[ch.num].status]}
+                        </span>
+                      )}
+                      {isSubmitted && chapterFeedback[ch.num] && readFeedback[ch.num] && chapterFeedback[ch.num].status === "pending" && (
+                        <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.04)", borderRadius:5, padding:"2px 7px" }}>Feedback read</span>
+                      )}
+                      {isSubmitted && (
+                        <span
+                          onClick={e => { e.stopPropagation(); setReadFeedback(r => ({ ...r, [ch.num]: true })); onViewSubmission(ch, chapterFeedback[ch.num]); }}
+                          style={{ fontSize:10, color: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--navy)" : "var(--teal)", background: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--teal)" : "rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600, cursor:"pointer" }}>
+                          {chapterFeedback[ch.num] ? (readFeedback[ch.num] ? "View feedback" : "View feedback →") : "View submission"}
+                        </span>
+                      )}
+                      {!isSubmitted && isActive && <span style={{ fontSize:10, color:"var(--teal)", background:"rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>Continue</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div></div>
+    </div>
+  );
+}
+
+function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComplete, onSaveDrafts }) {
+  const [activeSection, setActiveSection]     = useState(0);
+  const [drafts, setDrafts]                   = useState(initialDrafts || {});
+  const [aiPanel, setAiPanel]                 = useState(null);
+  const [aiLoading, setAiLoading]             = useState(false);
+  const [aiResponse, setAiResponse]           = useState("");
+  const [chatInput, setChatInput]             = useState("");
+  const [citeSrc, setCiteSrc]                 = useState({ author:"", year:"", title:"", journal:"", style:"APA" });
+  const [citeResult, setCiteResult]           = useState("");
+  const [submitted, setSubmitted]             = useState(false);
+  const [submitTime, setSubmitTime]           = useState(null);
+  const [showFeedback, setShowFeedback]       = useState(false);
+  const [feedback, setFeedback]               = useState("");
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const aiRef        = useRef(null);
+  const editorRef     = useRef(null);
+  const [wordCount,   setWordCount]   = useState(0);
+
+  const execCmd = (cmd, val) => {
+    try { document.execCommand(cmd, false, val || null); } catch(e) {}
+    if (editorRef.current) {
+      const text = editorRef.current.innerText || "";
+      setWordCount(text.split(/\s+/).filter(Boolean).length);
+      setDraft(editorRef.current.innerHTML);
+    }
+    editorRef.current && editorRef.current.focus();
+  };
+
+  const handleEditorInput = () => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML;
+    const text = editorRef.current.innerText || "";
+    setDraft(html);
+    setWordCount(text.split(/\s+/).filter(Boolean).length);
+  };
+
+  // Sync editor content when switching sections
+  useEffect(() => {
+    if (editorRef.current) {
+      const saved = drafts[activeSection] || "";
+      if (editorRef.current.innerHTML !== saved) editorRef.current.innerHTML = saved;
+      const text = editorRef.current.innerText || "";
+      setWordCount(text.split(/\s+/).filter(Boolean).length);
+    }
+  }, [activeSection]);
+
+  const sec = chapter.sections[activeSection];
+  const draft = drafts[activeSection] || "";
+  const setDraft = v => setDrafts(p => ({ ...p, [activeSection]: v }));
+  const { isMobile, isDesktop } = useBreakpoint();
+
+  // Completion check — each section needs at least 50 words
+  const MIN_WORDS = 50;
+  const sectionWordCounts = chapter.sections.map((_, i) => { const t = (drafts[i] || "").replace(/<[^>]*>/g," "); return t.split(/\s+/).filter(Boolean).length; });
+  const incompleteSections = chapter.sections.filter((_, i) => sectionWordCounts[i] < MIN_WORDS);
+  const allSectionsComplete = incompleteSections.length === 0;
+  const [showBlocker, setShowBlocker] = useState(false);
+
+  const sysBase = "You are Projecta, an AI academic writing assistant for Nigerian final year university students. Topic: " + project.topic + ". Department: " + project.dept + ". University: " + project.uni + ". Chapter " + chapter.num + ": " + chapter.title + ".";
+
+  const runAI = async (type) => {
+    setAiPanel(type); setAiResponse(""); setAiLoading(true);
+    try {
+      const sys = sysBase + " Current section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Guide: " + sec.guide + ". Student draft: " + (draft || "nothing written yet") + ".";
+      let prompt = "";
+      if (type === "explain") {
+        prompt = "Explain exactly what the student should write in section " + chapter.num + "." + (activeSection + 1) + " called " + sec.name + ". Be specific to their topic. Include: purpose of section, key content to cover, what a strong version looks like. Under 200 words.";
+      } else if (type === "prompt") {
+        prompt = "Generate paragraph-by-paragraph writing prompts for section " + chapter.num + "." + (activeSection + 1) + " called " + sec.name + " on the topic: " + project.topic + ". Expected length: " + sec.par + ". Give a concrete opening sentence or argument for each paragraph.";
+      } else if (type === "review") {
+        if (draft) {
+          prompt = "Review the student draft for section " + chapter.num + "." + (activeSection + 1) + " called " + sec.name + ". Give feedback under these headings: What is strong / What needs improvement / Missing content / Before you continue. Be specific. Under 220 words.";
+        } else {
+          prompt = "The student has not written anything yet for section " + chapter.num + "." + (activeSection + 1) + " called " + sec.name + ". Encourage them and suggest the first idea they could write. Under 100 words.";
+        }
+      }
+      const resp = await callAI([{ role:"user", content:prompt }], sys);
+      setAiResponse(resp);
+    } catch(e) { setAiResponse("Error: " + e.message); }
+    setAiLoading(false);
+  };
+
+  const runChat = async () => {
+    if (!chatInput.trim()) return;
+    const q = chatInput; setChatInput(""); setAiResponse(""); setAiLoading(true);
+    try {
+      const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
+      const resp = await callAI([{ role:"user", content:q }], sys);
+      setAiResponse(resp);
+    } catch(e) { setAiResponse("Error: " + e.message); }
+    setAiLoading(false);
+  };
+
+  const runCite = async () => {
+    if (!citeSrc.author || !citeSrc.title) return;
+    setAiLoading(true); setCiteResult("");
+    try {
+      const prompt = "Format this source in " + citeSrc.style + " style. Author(s): " + citeSrc.author + ". Year: " + citeSrc.year + ". Title: " + citeSrc.title + ". Journal/Publisher: " + (citeSrc.journal || "not provided") + ". Output only the formatted reference list entry.";
+      const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
+      setCiteResult(resp.trim());
+    } catch(e) { setCiteResult("Error: " + e.message); }
+    setAiLoading(false);
+  };
+
+  const runChapterReview = async () => {
+    setShowFeedback(true); setFeedback(""); setFeedbackLoading(true);
+    try {
+      const allText = chapter.sections.map((s, i) => chapter.num + "." + (i + 1) + " " + s.name + ": " + (drafts[i] || "not yet written")).join("\n\n");
+      const sys = sysBase + " Review the student full chapter draft.";
+      const prompt = "Here is the full Chapter " + chapter.num + " draft:\n\n" + allText + "\n\nProvide structured feedback:\n\nOverall Assessment (2-3 sentences)\n\nWhat is strong (2-3 points)\n\nWhat needs improvement (2-3 actionable points)\n\nMissing content\n\nBefore submitting to supervisor (1-2 critical fixes)\n\nBe specific and grounded in the topic: " + project.topic;
+      const resp = await callAI([{ role:"user", content:prompt }], sys);
+      setFeedback(resp);
+    } catch(e) { setFeedback("Error: " + e.message); }
+    setFeedbackLoading(false);
+  };
+
+  const handleSubmit = () => {
+    if (!allSectionsComplete) { setShowBlocker(true); return; }
+    onSaveDrafts(chapter.num, drafts);
+    onComplete(chapter.num, drafts);   // pass drafts directly — no stale closure
+    setSubmitted(true);
+    setSubmitTime(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
+  };
+
+  // Auto-save drafts whenever they change
+  useEffect(() => {
+    onSaveDrafts(chapter.num, drafts);
+  }, [drafts]);
+
+  useEffect(() => { if (aiRef.current) aiRef.current.scrollTop = 0; }, [aiResponse, aiPanel]);
+
+
+
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+
+      <div className="rp-nav" style={{ gap:10, flexWrap:"wrap", zIndex:20 }}>
+        <div style={{ display:"flex", gap:6 }}>
+          <button onClick={onHome} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 11px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
+          <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 11px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>Chapters</button>
+        </div>
+        <div style={{ flex:1, minWidth:0, fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          Ch.{chapter.num} — {chapter.title}
+        </div>
+        <div style={{ display:"flex", gap:7, flexShrink:0, flexWrap:"wrap" }}>
+          <button onClick={runChapterReview}
+            style={{ background:"rgba(0,201,167,0.1)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.28)", borderRadius:7, padding:"7px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+            AI Chapter Review
+          </button>
+          {submitted ? (
+            <div style={{ display:"flex", gap:7, alignItems:"center" }}>
+              <div style={{ background:"rgba(0,201,167,0.1)", border:"1px solid rgba(0,201,167,0.28)", borderRadius:7, padding:"7px 11px" }}>
+                <span style={{ fontSize:12, color:"var(--teal)", fontWeight:700 }}>Submitted {submitTime}</span>
+              </div>
+              <button onClick={() => buildDownload(project, chapter, drafts)}
+                style={{ background:"var(--navy2)", color:"var(--grey2)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:7, padding:"7px 13px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "var(--teal)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.4)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "var(--grey2)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; }}>
+                Download Chapter
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleSubmit}
+              style={{ background: allSectionsComplete ? "var(--teal)" : "rgba(0,201,167,0.25)", color: allSectionsComplete ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:7, padding:"7px 14px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", whiteSpace:"nowrap" }}
+              title={allSectionsComplete ? "Submit chapter to supervisor" : incompleteSections.length + " section(s) still need content"}>
+              {allSectionsComplete ? "Submit to supervisor" : incompleteSections.length + " section(s) incomplete"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="rp-sidebar-layout" style={{ flex:1, display:"flex", overflow:"hidden" }}>
+
+        <div className="rp-sections-panel" style={{ flexShrink:0, padding:"14px 10px", display:"flex", gap:7 }}>
+          <div className="rp-show-desktop" style={{ fontSize:9, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10, paddingLeft:8 }}>Sections</div>
+          {chapter.sections.map((s, i) => (
+            <button key={i}
+              onClick={() => { setActiveSection(i); setAiPanel(null); setAiResponse(""); }}
+              style={{ display:"flex", alignItems:"center", gap:7, background: activeSection===i ? "rgba(0,201,167,0.11)" : "transparent", border: activeSection===i ? "1px solid rgba(0,201,167,0.25)" : "1px solid transparent", borderRadius:8, padding:"7px 9px", cursor:"pointer", textAlign:"left", transition:"all 0.14s", marginBottom:2, whiteSpace:"nowrap" }}
+              onMouseEnter={e => { if (activeSection !== i) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+              onMouseLeave={e => { if (activeSection !== i) e.currentTarget.style.background = "transparent"; }}
+            >
+              {sectionWordCounts[i] >= MIN_WORDS
+                ? <span style={{ width:6, height:6, borderRadius:"50%", background: activeSection===i ? "var(--teal)" : "#4CAF50", flexShrink:0, display:"inline-block" }} />
+                : <Dot active={activeSection === i} />
+              }
+              <span style={{ fontSize:11, lineHeight:1.4 }}>
+                <span style={{ fontFamily:"var(--font-d)", fontSize:10, color: activeSection===i ? "var(--teal)" : "rgba(136,146,160,0.5)", marginRight:3 }}>{chapter.num}.{i+1}</span>
+                <span style={{ color: activeSection===i ? "var(--teal)" : "var(--grey3)", fontWeight: activeSection===i ? 600 : 400 }}>{s.name}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="rp-editor-panel" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+          <div style={{ padding:"14px 18px 10px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ display:"flex", alignItems:"baseline", gap:9, marginBottom:3 }}>
+              <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--teal)" }}>{chapter.num}.{activeSection+1}</span>
+              <span style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:700, color:"var(--white)" }}>{sec.name}</span>
+            </div>
+            <span style={{ fontSize:11, color:"var(--teal)" }}>Expected: {sec.par}</span>
+          </div>
+          <div style={{ margin:"10px 14px 0", background:"rgba(0,201,167,0.05)", border:"1px solid rgba(0,201,167,0.14)", borderRadius:9, padding:"9px 13px", fontSize:12, color:"rgba(168,237,226,0.85)", lineHeight:1.6 }}>
+            <span style={{ fontWeight:600, color:"var(--teal)" }}>Guide: </span>{sec.guide}
+          </div>
+          <div style={{ margin:"6px 14px 0", display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ flex:1, height:3, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
+              <div style={{ height:"100%", width: Math.min(100, (sectionWordCounts[activeSection] / MIN_WORDS) * 100) + "%", background: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--teal)", borderRadius:3, transition:"width 0.3s" }} />
+            </div>
+            <span style={{ fontSize:10, color: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--grey3)", whiteSpace:"nowrap", flexShrink:0 }}>
+              {sectionWordCounts[activeSection] >= MIN_WORDS ? "Section complete" : Math.max(0, MIN_WORDS - sectionWordCounts[activeSection]) + " more words needed"}
+            </span>
+          </div>
+          <div style={{ flex:1, padding:"10px 14px 14px", display:"flex", flexDirection:"column" }}>
+
+            {/* ── Formatting toolbar ── */}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:7, padding:"6px 10px", background:"#f3f4f6", border:"1px solid #d0d5dd", borderRadius:"10px 10px 0 0", borderBottom:"none" }}>
+              {/* History */}
+              {[
+                { t:"↩", cmd:"undo",   title:"Undo" },
+                { t:"↪", cmd:"redo",   title:"Redo" },
+              ].map(b => (
+                <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  {b.t}
+                </button>
+              ))}
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Text style */}
+              {[
+                { t:"B",  cmd:"bold",        title:"Bold",      style:{ fontWeight:"bold" } },
+                { t:"I",  cmd:"italic",      title:"Italic",    style:{ fontStyle:"italic" } },
+                { t:"U",  cmd:"underline",   title:"Underline", style:{ textDecoration:"underline" } },
+                { t:"S",  cmd:"strikeThrough",title:"Strikethrough", style:{ textDecoration:"line-through" } },
+              ].map(b => (
+                <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
+                  style={{ ...b.style, background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  {b.t}
+                </button>
+              ))}
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Headings */}
+              {[
+                { t:"H1", cmd:"formatBlock", val:"h2", title:"Heading 1" },
+                { t:"H2", cmd:"formatBlock", val:"h3", title:"Heading 2" },
+                { t:"¶",  cmd:"formatBlock", val:"p",  title:"Paragraph" },
+              ].map(b => (
+                <button key={b.t} title={b.title} onClick={() => execCmd(b.cmd, b.val)}
+                  style={{ background:"transparent", border:"none", borderRadius:5, padding:"0 7px", height:28, color:"#374151", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", fontFamily:"var(--font-d)" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  {b.t}
+                </button>
+              ))}
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Lists */}
+              {[
+                { t:"≡", cmd:"insertUnorderedList", title:"Bullet list" },
+                { t:"⒈", cmd:"insertOrderedList",   title:"Numbered list" },
+              ].map(b => (
+                <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  {b.t}
+                </button>
+              ))}
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Indent */}
+              {[
+                { t:"→", cmd:"indent",  title:"Indent" },
+                { t:"←", cmd:"outdent", title:"Outdent" },
+              ].map(b => (
+                <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  {b.t}
+                </button>
+              ))}
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Alignment */}
+              {[
+                { t:"⬛", cmd:"justifyLeft",   title:"Align left",   icon:"▤" },
+                { t:"⬛", cmd:"justifyCenter", title:"Align centre", icon:"▥" },
+                { t:"⬛", cmd:"justifyRight",  title:"Align right",  icon:"▦" },
+              ].map(b => (
+                <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  {b.icon}
+                </button>
+              ))}
+              <div style={{ marginLeft:"auto", fontSize:10, color:"#6b7280", alignSelf:"center", paddingRight:4, whiteSpace:"nowrap" }}>
+                {wordCount} words
+              </div>
+            </div>
+
+            {/* ── Content-editable editor ── */}
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={handleEditorInput}
+              onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px rgba(0,201,167,0.4)"; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = "0 2px 14px rgba(0,0,0,0.18)"; }}
+              data-placeholder={"Write section " + chapter.num + "." + (activeSection + 1) + " — " + sec.name + " here..."}
+              style={{ flex:1, minHeight:220, background:"#ffffff", border:"1px solid #d0d5dd", borderRadius:"0 0 11px 11px", padding:"20px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY:"auto", cursor:"text", boxShadow:"0 2px 14px rgba(0,0,0,0.18)" }}
+            />
+
+            <div style={{ marginTop:5, fontSize:11, color:"var(--grey3)", display:"flex", justifyContent:"space-between" }}>
+              <span />
+              <span>Draft saved automatically</span>
+            </div>
+          </div>
+        </div>
+
+        <div ref={aiRef} className="rp-ai-panel" style={{ flexShrink:0, display:"flex", flexDirection:"column", background:"rgba(0,0,0,0.14)", overflowY:"auto" }}>
+          <div style={{ padding:"12px 12px 8px" }}>
+            <div style={{ fontSize:9, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:9 }}>AI Guidance</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+              {[
+                { id:"explain", icon:"💡", label:"Explain section" },
+                { id:"prompt",  icon:"✍️", label:"Writing prompt" },
+                { id:"review",  icon:"🔍", label:"Review draft" },
+                { id:"cite",    icon:"📚", label:"Format citation" },
+                { id:"chat",    icon:"💬", label:"Ask anything" },
+              ].map(t => (
+                <button key={t.id}
+                  onClick={() => {
+                    if (t.id === "chat") { setAiPanel("chat"); setAiResponse(""); return; }
+                    if (t.id === "cite") { setAiPanel("cite"); setCiteResult(""); return; }
+                    runAI(t.id);
+                  }}
+                  style={{ background: aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)", border: "1px solid " + (aiPanel === t.id ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.08)"), borderRadius:9, padding:"9px 7px", cursor:"pointer", textAlign:"left", transition:"all 0.15s", gridColumn: t.id === "chat" ? "1 / -1" : "auto" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.1)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)"; }}
+                >
+                  <div style={{ fontSize:14, marginBottom:2 }}>{t.icon}</div>
+                  <div style={{ fontSize:11, color:"var(--grey2)", fontWeight:500, lineHeight:1.3 }}>{t.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ flex:1, padding:"0 12px 12px" }}>
+            {aiPanel === "cite" && (
+              <div className="fi">
+                {[
+                  { k:"author",  lb:"Author(s)",          ph:"e.g. Soludo, C.C." },
+                  { k:"year",    lb:"Year",                ph:"e.g. 2023" },
+                  { k:"title",   lb:"Title",               ph:"Article or book title" },
+                  { k:"journal", lb:"Journal / Publisher", ph:"e.g. CBN Economic Review" },
+                ].map(f => (
+                  <div key={f.k} style={{ marginBottom:7 }}>
+                    <div style={{ fontSize:9, color:"var(--grey3)", marginBottom:2, textTransform:"uppercase", letterSpacing:"0.06em" }}>{f.lb}</div>
+                    <input value={citeSrc[f.k]} onChange={e => setCiteSrc(p => ({ ...p, [f.k]: e.target.value }))} placeholder={f.ph}
+                      style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"7px 9px", color:"var(--white)", fontSize:11, fontFamily:"var(--font-b)", outline:"none" }} />
+                  </div>
+                ))}
+                <select value={citeSrc.style} onChange={e => setCiteSrc(p => ({ ...p, style: e.target.value }))}
+                  style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"7px 9px", color:"var(--white)", fontSize:11, fontFamily:"var(--font-b)", outline:"none", marginBottom:9 }}>
+                  {["APA","Harvard","MLA","Chicago","Vancouver"].map(s => <option key={s} value={s} style={{ background:"var(--navy2)" }}>{s}</option>)}
+                </select>
+                <button onClick={runCite} disabled={!citeSrc.author || !citeSrc.title || aiLoading}
+                  style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:7, padding:"8px", fontSize:12, fontFamily:"var(--font-d)", fontWeight:700, cursor:"pointer", marginBottom: citeResult ? 10 : 0 }}>
+                  {aiLoading ? "Formatting..." : "Format citation"}
+                </button>
+                {citeResult && (
+                  <div style={{ background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.18)", borderRadius:8, padding:11, fontSize:12, color:"var(--grey2)", lineHeight:1.6 }}>
+                    <div style={{ fontSize:9, color:"var(--teal)", marginBottom:5, fontWeight:600, textTransform:"uppercase" }}>{citeSrc.style} format</div>
+                    {citeResult}
+                    <button onClick={() => navigator.clipboard && navigator.clipboard.writeText(citeResult)}
+                      style={{ marginTop:7, background:"transparent", border:"1px solid rgba(0,201,167,0.3)", borderRadius:5, padding:"4px 9px", color:"var(--teal)", fontSize:10, cursor:"pointer" }}>Copy</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {aiPanel === "chat" && (
+              <div className="fi">
+                {aiResponse && (
+                  <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.14)", borderRadius:9, padding:"11px 12px", marginBottom:9, fontSize:13, color:"var(--grey2)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>
+                    {aiLoading ? "Thinking..." : aiResponse}
+                  </div>
+                )}
+                <div style={{ display:"flex", gap:7 }}>
+                  <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") runChat(); }}
+                    placeholder="Ask anything about your project..."
+                    style={{ flex:1, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"8px 11px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", outline:"none" }} />
+                  <button onClick={runChat} disabled={aiLoading || !chatInput.trim()}
+                    style={{ background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:7, padding:"8px 12px", fontSize:14, cursor:"pointer", flexShrink:0 }}>→</button>
+                </div>
+              </div>
+            )}
+
+            {aiPanel && aiPanel !== "cite" && aiPanel !== "chat" && (
+              <div className="fi" style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.14)", borderRadius:9, padding:13, fontSize:13, color:"var(--grey2)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>
+                {aiLoading ? "Generating guidance..." : aiResponse}
+              </div>
+            )}
+
+            {!aiPanel && (
+              <div style={{ padding:"20px 0", textAlign:"center", color:"var(--grey3)", fontSize:12, lineHeight:1.7 }}>
+                <div style={{ fontSize:20, marginBottom:7 }}>+</div>
+                Select a tool above to get<br />AI guidance on this section.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showBlocker && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+          onClick={() => setShowBlocker(false)}>
+          <div style={{ background:"var(--navy2)", border:"1px solid rgba(255,100,100,0.35)", borderRadius:16, padding:"26px 24px", width:"100%", maxWidth:420 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:22, marginBottom:10 }}>✋</div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:17, fontWeight:700, color:"var(--white)", marginBottom:6 }}>Chapter not ready to submit</div>
+            <div style={{ fontSize:13, color:"var(--grey3)", marginBottom:18, lineHeight:1.6 }}>
+              Each section needs at least {MIN_WORDS} words before you can submit to your supervisor. The following sections still need content:
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+              {incompleteSections.map((s, i) => {
+                const idx = chapter.sections.indexOf(s);
+                const words = sectionWordCounts[idx];
+                return (
+                  <div key={i}
+                    onClick={() => { setActiveSection(idx); setShowBlocker(false); }}
+                    style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:9, padding:"10px 14px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.3)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:600, color:"var(--white)" }}>{chapter.num}.{idx+1} {s.name}</div>
+                      <div style={{ fontSize:11, color:"var(--grey3)", marginTop:2 }}>{words} of {MIN_WORDS} words written</div>
+                    </div>
+                    <span style={{ fontSize:11, color:"var(--teal)", fontWeight:600, whiteSpace:"nowrap" }}>Go to section →</span>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={() => setShowBlocker(false)}
+              style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:9, padding:"11px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, cursor:"pointer" }}>
+              Continue writing
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showFeedback && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+          onClick={() => { if (!feedbackLoading) setShowFeedback(false); }}>
+          <div style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:16, padding:"26px 22px", width:"100%", maxWidth:520, maxHeight:"80vh", overflowY:"auto" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:17, fontWeight:700, color:"var(--white)", marginBottom:3 }}>Chapter {chapter.num} — AI Review</div>
+            <div style={{ fontSize:12, color:"var(--grey3)", marginBottom:18 }}>Full review across all {chapter.sections.length} sections</div>
+            {feedbackLoading
+              ? <div style={{ color:"var(--teal)", padding:"16px 0" }}>Reading your chapter...</div>
+              : <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{feedback}</div>
+            }
+            {!feedbackLoading && (
+              <button onClick={() => setShowFeedback(false)}
+                style={{ marginTop:18, background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"10px 20px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                Close
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClose, onDownload }) {
+  const wordCount = Object.values(drafts).join(" ").split(/\s+/).filter(Boolean).length;
+  const hasFeedback = supervisorFeedback && (supervisorFeedback.feedback || supervisorFeedback.sectionComments);
+  const statusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
+  const statusLabel = { pending:"Pending review", approved:"Approved", minor:"Minor revision needed", major:"Major revision needed" };
+  const sc = supervisorFeedback ? (supervisorFeedback.sectionComments || {}) : {};
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+      onClick={onClose}>
+      <div style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:16, width:"100%", maxWidth:620, maxHeight:"90vh", display:"flex", flexDirection:"column" }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexShrink:0 }}>
+          <div>
+            <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>
+              {hasFeedback ? "Supervisor Feedback" : "Submitted Chapter"}
+            </div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:16, fontWeight:700, color:"var(--white)", marginBottom:2 }}>Chapter {chapter.num}: {chapter.title}</div>
+            <div style={{ fontSize:11, color:"var(--grey3)", display:"flex", alignItems:"center", gap:8 }}>
+              <span>{wordCount} words</span>
+              {hasFeedback && supervisorFeedback.status && (
+                <span style={{ color: statusColor[supervisorFeedback.status] || "var(--grey3)", fontWeight:600 }}>
+                  · {statusLabel[supervisorFeedback.status] || supervisorFeedback.status}
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+            <button onClick={onDownload}
+              style={{ background:"rgba(0,201,167,0.12)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:8, padding:"7px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+              Download
+            </button>
+            <button onClick={onClose}
+              style={{ background:"rgba(255,255,255,0.07)", color:"var(--grey3)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"7px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+              Close
+            </button>
+          </div>
+        </div>
+
+        {/* Overall feedback banner */}
+        {hasFeedback && supervisorFeedback.feedback && (
+          <div style={{ margin:"12px 20px 0", background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:10, padding:"12px 14px", flexShrink:0 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Overall feedback from supervisor</div>
+            <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{supervisorFeedback.feedback}</div>
+          </div>
+        )}
+
+        {/* Sections */}
+        <div style={{ overflowY:"auto", padding:"16px 20px 24px" }}>
+          {chapter.sections.map((s, i) => {
+            const text = drafts[i] || "";
+            const comment = sc[i] || "";
+            return (
+              <div key={i} style={{ marginBottom:20, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:12, overflow:"hidden" }}>
+                {/* Section header */}
+                <div style={{ padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.05)", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontFamily:"var(--font-d)", fontSize:11, fontWeight:700, color:"var(--teal)" }}>{chapter.num}.{i+1}</span>
+                  <span style={{ fontFamily:"var(--font-d)", fontSize:12, fontWeight:700, color:"var(--white)" }}>{s.name}</span>
+                  <span style={{ fontSize:10, color:"var(--grey3)", marginLeft:"auto" }}>
+                    {text.trim() ? text.split(/\s+/).filter(Boolean).length + " words" : "Not written"}
+                  </span>
+                  {comment && <span style={{ fontSize:10, color:"#FFC107", fontWeight:600, background:"rgba(255,193,7,0.1)", borderRadius:10, padding:"1px 7px" }}>Comment</span>}
+                </div>
+
+                {/* Student text */}
+                <div style={{ padding:"12px 14px", borderBottom: comment ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                  {text.trim() ? (
+                    <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.85, whiteSpace:"pre-wrap" }}>{text}</div>
+                  ) : (
+                    <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>No content written for this section.</div>
+                  )}
+                </div>
+
+                {/* Supervisor comment */}
+                {comment && (
+                  <div style={{ padding:"10px 14px", background:"rgba(255,193,7,0.04)", borderTop:"1px solid rgba(255,193,7,0.12)" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>
+                      💬 Supervisor comment
+                    </div>
+                    <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>{comment}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SUPERVISOR DASHBOARD — full addition
+// ═══════════════════════════════════════════════════════════════
+
+// Storage keys
+// Student writes:  "projecta_submission_<studentName>_ch<N>"  (shared=true)
+// Supervisor writes: "projecta_feedback_<studentName>_ch<N>"  (shared=true)
+// Student index:   "projecta_students"  (shared=true)
+
+// ── Role picker ─────────────────────────────────────────────────────────────
+// ── Auth: Login + Sign Up ────────────────────────────────────────────────────
+const DEPTS_AUTH = ["Economics","Accounting","Business Administration","Banking & Finance","Public Administration","Political Science","Sociology","Mass Communication","Law","Computer Science","Engineering","Agriculture","Nursing / Medical Sciences","Education","Other"];
+
+function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAccount }) {
+  const [mode,     setMode]     = useState("login");   // "login" | "signup"
+  const [role,     setRole]     = useState("student"); // "student" | "supervisor"
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [name,     setName]     = useState("");
+  const [dept,     setDept]     = useState("");
+  const [uni,      setUni]      = useState("");
+  const [title,    setTitle]    = useState("");
+  const [err,      setErr]      = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [showPass,    setShowPass]    = useState(false);
+  const [resetStep,   setResetStep]   = useState(1); // 1=enter email, 2=new password
+  const [resetEmail,  setResetEmail]  = useState("");
+  const [newPass,     setNewPass]     = useState("");
+  const [newPass2,    setNewPass2]    = useState("");
+  const [resetMsg,    setResetMsg]    = useState("");
+
+  const inp = { width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:10, padding:"13px 16px", color:"var(--white)", fontSize:14, fontFamily:"var(--font-b)", outline:"none" };
+  const lbl = { display:"block", fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:7 };
+
+  const emailOk   = email.includes("@") && email.includes(".");
+  const passOk    = password.length >= 6;
+  const signupOk  = emailOk && passOk && name.trim().length > 2 && dept && uni.trim().length > 3;
+  const loginOk   = emailOk && passOk;
+
+  const handleLogin = async () => {
+    setErr(""); setLoading(true);
+    try {
+      const key = email.toLowerCase().trim();
+      let acc = null;
+
+      // 1. In-memory cache (same session — fastest)
+      if (ACCOUNTS_CACHE[key]) acc = ACCOUNTS_CACHE[key];
+
+      // 2. window.storage — shared across ALL devices (primary source of truth)
+      if (!acc) {
+        try {
+          if (window.storage) {
+            const res = await window.storage.get(ACCOUNTS_KEY);
+            if (res && res.value) { const parsed = JSON.parse(res.value); acc = parsed[key] || null; }
+          }
+        } catch(e) {}
+      }
+
+      // 3. localStorage — same-device cache (fallback if window.storage unavailable)
+      if (!acc) {
+        try {
+          const lsVal = localStorage.getItem("pjt_" + ACCOUNTS_KEY);
+          if (lsVal) { const parsed = JSON.parse(lsVal); acc = parsed[key] || null; }
+        } catch(e) {}
+      }
+
+      // 4. ROLE_KEY fallback — recover account from last session on this device
+      if (!acc) {
+        try {
+          const lsRole = localStorage.getItem("pjt_" + ROLE_KEY);
+          if (lsRole) {
+            const saved = JSON.parse(lsRole);
+            if (saved.account && saved.account.email === key) acc = saved.account;
+            if (!acc && saved.role === "supervisor" && saved.supervisor && saved.supervisor.email === key) {
+              acc = Object.assign({ role:"supervisor" }, saved.supervisor);
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (!acc) { setErr("No account found. Please sign up first."); setLoading(false); return; }
+      if (acc.password !== password) { setErr("Incorrect password. Check your password and try again."); setLoading(false); return; }
+
+      ACCOUNTS_CACHE[key] = acc;
+      onLogin(acc);
+    } catch(e) { setErr("Something went wrong: " + e.message); }
+    setLoading(false);
+  };
+
+  const handleSignup = async () => {
+    setErr(""); setLoading(true);
+    try {
+      const res = await safeGet(ACCOUNTS_KEY);
+      const stored = res && res.value ? JSON.parse(res.value) : {};
+      const accounts = Object.assign({}, stored, ACCOUNTS_CACHE);
+      const key = email.toLowerCase().trim();
+      if (accounts[key]) { setErr("An account with this email already exists. Please log in."); setLoading(false); return; }
+      let acc = { email: key, password, role, name: name.trim(), dept: dept.trim(), uni: uni.trim(), title: title.trim() };
+      if (role === "supervisor") {
+        const code = makeCode();
+        const codeKey = "sup_code_" + code.replace("-","");
+        const profile = { name: acc.name, dept: acc.dept, uni: acc.uni, email: key, code, codeKey, students: [] };
+        SUP_CACHE[codeKey] = profile;
+        acc.code = code;
+        acc.codeKey = codeKey;
+        // Save supervisor profile — localStorage first so it never hangs
+        try { localStorage.setItem("pjt_" + codeKey, JSON.stringify(profile)); } catch(e) {}
+        safeSet(codeKey, JSON.stringify(profile)); // fire-and-forget to Firestore
+      }
+      accounts[key] = acc;
+      ACCOUNTS_CACHE[key] = acc;
+      // Save accounts — localStorage first
+      try { localStorage.setItem("pjt_" + ACCOUNTS_KEY, JSON.stringify(accounts)); } catch(e) {}
+      safeSet(ACCOUNTS_KEY, JSON.stringify(accounts)); // fire-and-forget to Firestore
+      // Immediately proceed — don't wait for Firestore
+      onLogin(acc);
+    } catch(e) { setErr("Sign up failed: " + e.message + ". Please try again."); }
+    setLoading(false);
+  };
+
+  const handleResetLookup = async () => {
+    setResetMsg(""); setLoading(true);
+    try {
+      const key = resetEmail.toLowerCase().trim();
+      let found = false;
+      // Check all storage layers — window.storage first (cross-device)
+      if (ACCOUNTS_CACHE[key]) found = true;
+      if (!found) {
+        try { if (window.storage) { const r = await window.storage.get(ACCOUNTS_KEY); if (r && r.value) { const p = JSON.parse(r.value); if (p[key]) found = true; } } } catch(e) {}
+      }
+      if (!found) {
+        try { const v = localStorage.getItem("pjt_" + ACCOUNTS_KEY); if (v) { const p = JSON.parse(v); if (p[key]) found = true; } } catch(e) {}
+      }
+      if (!found) { setResetMsg("No account found with that email."); setLoading(false); return; }
+      setResetStep(2);
+    } catch(e) { setResetMsg("Something went wrong. Try again."); }
+    setLoading(false);
+  };
+
+  const handleResetSave = async () => {
+    setResetMsg(""); setLoading(true);
+    try {
+      if (newPass.length < 6) { setResetMsg("Password must be at least 6 characters."); setLoading(false); return; }
+      if (newPass !== newPass2) { setResetMsg("Passwords do not match."); setLoading(false); return; }
+      const key = resetEmail.toLowerCase().trim();
+
+      // Update in all storage layers
+      // 1. ACCOUNTS_CACHE
+      if (ACCOUNTS_CACHE[key]) ACCOUNTS_CACHE[key].password = newPass;
+
+      // 2. window.storage (cross-device — primary)
+      try {
+        if (window.storage) {
+          const r = await window.storage.get(ACCOUNTS_KEY);
+          const accounts = r && r.value ? JSON.parse(r.value) : {};
+          if (accounts[key]) {
+            accounts[key].password = newPass;
+            await window.storage.set(ACCOUNTS_KEY, JSON.stringify(accounts));
+            if (!ACCOUNTS_CACHE[key]) ACCOUNTS_CACHE[key] = accounts[key];
+          }
+        }
+      } catch(e) {}
+
+      // 3. localStorage cache (same-device)
+      try {
+        const v = localStorage.getItem("pjt_" + ACCOUNTS_KEY);
+        const accounts = v ? JSON.parse(v) : {};
+        if (accounts[key]) {
+          accounts[key].password = newPass;
+          localStorage.setItem("pjt_" + ACCOUNTS_KEY, JSON.stringify(accounts));
+        }
+      } catch(e) {}
+
+      setResetMsg("success");
+    } catch(e) { setResetMsg("Something went wrong. Try again."); }
+    setLoading(false);
+  };
+
+  // If there is a saved supervisor session, show that first
+  if (savedSupervisor) {
+    return (
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+        <div style={{ width:"100%", maxWidth:400, textAlign:"center" }} className="fu">
+          <div style={{ margin:"0 auto 24px" }}><ProjectaWordmark size={84} /></div>
+          <div style={{ fontSize:13, color:"var(--grey3)", marginBottom:20, lineHeight:1.6 }}>Welcome back</div>
+          <div style={{ background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:12, padding:"14px 18px", marginBottom:14, textAlign:"left" }}>
+            <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:5 }}>Signed in as supervisor</div>
+            <div style={{ fontSize:14, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{savedSupervisor.name}</div>
+            <div style={{ fontSize:12, color:"var(--grey3)" }}>{savedSupervisor.dept} · {savedSupervisor.uni}</div>
+          </div>
+          <button onClick={onReturnToDashboard}
+            style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:12, padding:"15px 0", fontFamily:"var(--font-d)", fontWeight:800, fontSize:16, cursor:"pointer", marginBottom:10 }}
+            onMouseEnter={e => { e.target.style.background="var(--teal2)"; }}
+            onMouseLeave={e => { e.target.style.background="var(--teal)"; }}>
+            Return to dashboard →
+          </button>
+          <button onClick={onSwitchAccount}
+            style={{ background:"transparent", border:"none", color:"var(--grey3)", fontSize:12, cursor:"pointer", textDecoration:"underline", marginTop:4 }}>
+            Sign in as a different account
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Reset password view ────────────────────────────────────────────────────
+  if (mode === "reset") {
+    return (
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 16px" }}>
+        <div style={{ width:"100%", maxWidth:420 }} className="fu">
+          <div style={{ textAlign:"center", margin:"0 auto 28px" }}>
+            <ProjectaWordmark size={80} />
+          </div>
+
+          <div style={{ background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, padding:"28px 24px" }}>
+
+            {resetMsg === "success" ? (
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:36, marginBottom:12 }}>✓</div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:700, color:"var(--white)", marginBottom:8 }}>Password updated</div>
+                <div style={{ fontSize:13, color:"var(--grey3)", marginBottom:24, lineHeight:1.6 }}>Your password has been changed successfully. You can now log in with your new password.</div>
+                <button onClick={() => { setMode("login"); setResetStep(1); setResetEmail(""); setNewPass(""); setNewPass2(""); setResetMsg(""); }}
+                  style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:10, padding:"13px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor:"pointer" }}>
+                  Go to Log In →
+                </button>
+              </div>
+            ) : (
+              <>
+                <button onClick={() => { setMode("login"); setResetStep(1); setResetMsg(""); }}
+                  style={{ background:"none", border:"none", color:"var(--grey3)", fontSize:12, cursor:"pointer", marginBottom:18, padding:0, display:"flex", alignItems:"center", gap:4 }}>
+                  ← Back to Log In
+                </button>
+
+                <div style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:800, color:"var(--white)", marginBottom:6 }}>Reset Password</div>
+                <div style={{ fontSize:13, color:"var(--grey3)", marginBottom:22, lineHeight:1.6 }}>
+                  {resetStep === 1 ? "Enter your registered email address." : "Choose a new password for your account."}
+                </div>
+
+                {/* Step indicator */}
+                <div style={{ display:"flex", gap:6, marginBottom:22 }}>
+                  {[1,2].map(s => (
+                    <div key={s} style={{ flex:1, height:3, borderRadius:999, background: s <= resetStep ? "var(--teal)" : "rgba(255,255,255,0.1)" }} />
+                  ))}
+                </div>
+
+                {resetStep === 1 ? (
+                  <>
+                    <div style={{ marginBottom:18 }}>
+                      <label style={lbl}>Email Address</label>
+                      <input style={inp} type="email" placeholder="your@email.com" value={resetEmail} onChange={e => setResetEmail(e.target.value)} />
+                    </div>
+                    {resetMsg && <div style={{ color:"#FF6B6B", fontSize:13, marginBottom:14 }}>{resetMsg}</div>}
+                    <button onClick={handleResetLookup} disabled={loading || !resetEmail.includes("@")}
+                      style={{ width:"100%", background: resetEmail.includes("@") ? "var(--teal)" : "rgba(0,201,167,0.2)", color: resetEmail.includes("@") ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:10, padding:"13px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor: resetEmail.includes("@") ? "pointer" : "not-allowed" }}>
+                      {loading ? "Checking..." : "Continue →"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"9px 14px", fontSize:13, color:"var(--teal)", marginBottom:18 }}>
+                      Account found: {resetEmail}
+                    </div>
+                    <div style={{ marginBottom:14 }}>
+                      <label style={lbl}>New Password</label>
+                      <input style={inp} type="password" placeholder="Min. 6 characters" value={newPass} onChange={e => setNewPass(e.target.value)} />
+                    </div>
+                    <div style={{ marginBottom:18 }}>
+                      <label style={lbl}>Confirm New Password</label>
+                      <input style={inp} type="password" placeholder="Repeat your new password" value={newPass2} onChange={e => setNewPass2(e.target.value)} />
+                    </div>
+                    {resetMsg && <div style={{ color:"#FF6B6B", fontSize:13, marginBottom:14 }}>{resetMsg}</div>}
+                    <button onClick={handleResetSave} disabled={loading || newPass.length < 6 || newPass !== newPass2}
+                      style={{ width:"100%", background: newPass.length >= 6 && newPass === newPass2 ? "var(--teal)" : "rgba(0,201,167,0.2)", color: newPass.length >= 6 && newPass === newPass2 ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:10, padding:"13px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor: newPass.length >= 6 && newPass === newPass2 ? "pointer" : "not-allowed" }}>
+                      {loading ? "Saving..." : "Save new password →"}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 16px" }}>
+      <div style={{ width:"100%", maxWidth:420 }} className="fu">
+        <div style={{ textAlign:"center", margin:"0 auto 28px" }}>
+          <ProjectaWordmark size={80} />
+        </div>
+
+        {/* Mode tabs */}
+        <div style={{ display:"flex", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:4, marginBottom:24 }}>
+          {["login","signup"].map(m => (
+            <button key={m} onClick={() => { setMode(m); setErr(""); }}
+              style={{ flex:1, background: mode===m ? "rgba(0,201,167,0.15)" : "transparent", border: mode===m ? "1px solid rgba(0,201,167,0.35)" : "1px solid transparent", borderRadius:9, padding:"10px 0", color: mode===m ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, cursor:"pointer", transition:"all 0.2s" }}>
+              {m === "login" ? "Log In" : "Sign Up"}
+            </button>
+          ))}
+        </div>
+
+        {/* Role toggle (signup only) */}
+        {mode === "signup" && (
+          <div style={{ display:"flex", gap:10, marginBottom:20 }}>
+            {["student","supervisor"].map(r => (
+              <button key={r} onClick={() => setRole(r)}
+                style={{ flex:1, background: role===r ? "rgba(0,201,167,0.1)" : "rgba(255,255,255,0.03)", border: role===r ? "1px solid rgba(0,201,167,0.45)" : "1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"11px 0", color: role===r ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", transition:"all 0.2s" }}>
+                {r === "student" ? "👨‍🎓 Student" : "🎓 Supervisor"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Sign-up fields */}
+        {mode === "signup" && (
+          <>
+            {role === "supervisor" && (
+              <div style={{ marginBottom:14 }}>
+                <label style={lbl}>Academic Title</label>
+                <select style={{ ...inp, cursor:"pointer", color: title ? "var(--white)" : "var(--grey3)" }} value={title} onChange={e => setTitle(e.target.value)}>
+                  <option value="" style={{ background:"#1A2E42", color:"var(--grey3)" }}>Select title (optional)</option>
+                  {["Dr.","Prof.","Assoc. Prof.","Mr.","Mrs.","Ms.","Engr.","Barr."].map(t => (
+                    <option key={t} value={t} style={{ background:"#1A2E42", color:"var(--white)" }}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div style={{ marginBottom:14 }}>
+              <label style={lbl}>Full Name</label>
+              <input style={inp} placeholder={role==="student" ? "e.g. Chisom Okafor" : "e.g. Aisha Bello"} value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <label style={lbl}>Department</label>
+              <select style={{ ...inp, cursor:"pointer", color: dept ? "var(--white)" : "var(--grey3)" }} value={dept} onChange={e => setDept(e.target.value)}>
+                <option value="" disabled style={{ background:"#1A2E42" }}>Select department</option>
+                {DEPTS_AUTH.map(d => <option key={d} value={d} style={{ background:"#1A2E42", color:"var(--white)" }}>{d}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <label style={lbl}>University</label>
+              <input style={inp} placeholder="e.g. University of Mkar" value={uni} onChange={e => setUni(e.target.value)} />
+            </div>
+          </>
+        )}
+
+        {/* Email + Password (always shown) */}
+        <div style={{ marginBottom:14 }}>
+          <label style={lbl}>Email Address</label>
+          <input style={inp} type="email" placeholder="you@university.edu.ng" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div style={{ marginBottom:22 }}>
+          <label style={lbl}>Password {mode==="signup" && <span style={{ color:"var(--grey3)", fontWeight:400, textTransform:"none", fontSize:10 }}>— min. 6 characters</span>}</label>
+          <div style={{ position:"relative" }}>
+            <input style={{ ...inp, paddingRight:44 }} type={showPass ? "text" : "password"} placeholder={mode==="signup" ? "Create a password" : "Your password"} value={password} onChange={e => setPassword(e.target.value)} />
+            <button onClick={() => setShowPass(p => !p)} style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:13, padding:0 }}>
+              {showPass ? "Hide" : "Show"}
+            </button>
+          </div>
+        </div>
+
+        {mode === "login" && (
+          <div style={{ textAlign:"right", marginTop:-14, marginBottom:16 }}>
+            <button onClick={() => { setMode("reset"); setResetStep(1); setResetEmail(email); setResetMsg(""); setErr(""); }}
+              style={{ background:"none", border:"none", color:"var(--grey3)", fontSize:12, cursor:"pointer", textDecoration:"underline", padding:0 }}>
+              Forgot password?
+            </button>
+          </div>
+        )}
+
+        {/* Error */}
+        {err && (
+          <div style={{ background:"rgba(255,80,80,0.1)", border:"1px solid rgba(255,80,80,0.3)", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#FF6B6B", marginBottom:16 }}>
+            {err}
+            {err.includes("No account") && (
+              <div style={{ marginTop:8 }}>
+                <button onClick={() => { setMode("signup"); setErr(""); }}
+                  style={{ background:"transparent", border:"none", color:"var(--teal)", fontSize:12, cursor:"pointer", textDecoration:"underline", padding:0 }}>
+                  Create a new account instead →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          onClick={mode === "login" ? handleLogin : handleSignup}
+          disabled={loading || (mode==="login" ? !loginOk : !signupOk)}
+          style={{ width:"100%", background: (mode==="login" ? loginOk : signupOk) ? "var(--teal)" : "rgba(0,201,167,0.2)", color: (mode==="login" ? loginOk : signupOk) ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:10, padding:"14px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor: (mode==="login" ? loginOk : signupOk) ? "pointer" : "not-allowed", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {loading ? <Spinner /> : null}
+          {loading ? "Please wait..." : mode === "login" ? "Log in →" : "Create account →"}
+        </button>
+
+        <div style={{ textAlign:"center", marginTop:16, fontSize:12, color:"var(--grey3)" }}>
+          {mode === "login"
+            ? <span>No account? <button onClick={() => { setMode("signup"); setErr(""); }} style={{ background:"none", border:"none", color:"var(--teal)", cursor:"pointer", fontSize:12, textDecoration:"underline" }}>Sign up free</button></span>
+            : <span>Already have an account? <button onClick={() => { setMode("login"); setErr(""); }} style={{ background:"none", border:"none", color:"var(--teal)", cursor:"pointer", fontSize:12, textDecoration:"underline" }}>Log in</button></span>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── Student Dashboard ────────────────────────────────────────────────────────
+function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToChapters, onViewSubmission, onSignOut }) {
+  const [feedback,        setFeedback]        = useState({});
+  const [readFeedback,    setReadFeedback]     = useState({});  // { [chNum]: true } — chapters whose feedback has been viewed
+  const [loadingFeedback, setLoadingFeedback] = useState(true);
+  const [tipIdx,          setTipIdx]          = useState(0);
+
+  const TIPS = [
+    "Start each section by writing one rough sentence — then improve it.",
+    "Use the AI Guidance panel to get unstuck — it won't write for you, but it will show you how.",
+    "Chapters 1 and 2 set the foundation. Take your time and get them right.",
+    "Save your citations as you find them — collecting them at the end is painful.",
+    "Word count matters less than argument quality. Say it clearly, then expand.",
+    "Your supervisor's feedback is a gift. Act on every point before resubmitting.",
+  ];
+
+  useEffect(() => {
+    const load = async () => {
+      if (!project || !project.supervisorCodeKey) { setLoadingFeedback(false); return; }
+      const fb = {};
+      const prof = SUP_CACHE[project.supervisorCodeKey];
+      if (prof && prof.feedback && prof.feedback[project.studentName]) {
+        Object.keys(prof.feedback[project.studentName]).forEach(k => {
+          fb[parseInt(k)] = prof.feedback[project.studentName][k];
+        });
+      }
+      for (let n = 1; n <= 5; n++) {
+        const sKey = (project.studentName || "").trim().toLowerCase().replace(/\s+/g, "_");
+        const fbKey = project.supervisorCodeKey + "_fb_" + sKey + "_ch" + n;
+        const res = await safeGet(fbKey);
+        if (res && res.value) fb[n] = JSON.parse(res.value);
+      }
+      setFeedback(fb);
+      setLoadingFeedback(false);
+    };
+    load();
+    const t = setInterval(() => setTipIdx(i => (i + 1) % 6), 7000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (!project) return null;
+
+  const submitted      = project.submitted || {};
+  const submittedNums  = Object.keys(submitted).map(Number);
+  const submittedCount = submittedNums.length;
+  const pct            = Math.round((submittedCount / 5) * 100);
+  const totalWords     = Object.values(allDrafts).reduce((tot, chDraft) =>
+    tot + Object.values(chDraft || {}).join(" ").split(/\s+/).filter(Boolean).length, 0);
+  const hasFeedback    = submittedNums.filter(n => feedback[n] && !readFeedback[n]);  // only unread
+  const nextChapter    = CHAPTERS.find(ch => !submitted[ch.num]) || null;
+  const firstName      = (project.studentName || "").split(" ")[0];
+
+  const statusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
+  const statusLabel = { pending:"Pending review", approved:"Approved ✓", minor:"Minor revision", major:"Major revision" };
+  const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"18px 20px" };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+
+      {/* Nav */}
+      <div className="rp-nav">
+        <ProjectaIcon size={30} />
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={onGoToChapters}
+            style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+            Chapters
+          </button>
+          <button onClick={onSignOut}
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
+            Sign out
+          </button>
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"26px 0 40px" }}><div className="rp-container">
+
+        {/* Greeting */}
+        <div style={{ marginBottom:24 }} className="fu">
+          <div style={{ fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>
+            {project.dept} · {project.uni}
+          </div>
+          <div style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", lineHeight:1.25, marginBottom:6 }}>
+            {"Welcome back, " + firstName + "."}
+          </div>
+          <div style={{ fontSize:13, color:"var(--grey3)", lineHeight:1.6 }}>{project.topic}</div>
+        </div>
+
+        {/* Progress card */}
+        <div style={{ ...card, marginBottom:14 }} className="fu">
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
+            <div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:3 }}>Overall Progress</div>
+              <div style={{ fontSize:11, color:"var(--grey3)" }}>{submittedCount} of 5 chapters submitted · {totalWords.toLocaleString()} words</div>
+            </div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:28, fontWeight:800, color:"var(--teal)", lineHeight:1 }}>{pct}<span style={{ fontSize:14, color:"var(--grey3)" }}>%</span></div>
+          </div>
+          {/* Big progress bar */}
+          <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:999, height:10, overflow:"hidden", marginBottom:14 }}>
+            <div style={{ height:"100%", width:pct + "%", background:"linear-gradient(90deg, #007A65, #00C9A7)", borderRadius:999, transition:"width 0.7s ease" }} />
+          </div>
+          {/* Chapter pills */}
+          <div style={{ display:"flex", gap:6 }}>
+            {CHAPTERS.map(ch => {
+              const done = !!submitted[ch.num];
+              const fb   = feedback[ch.num];
+              const dot  = done ? (fb ? statusColor[fb.status] || "#4CAF50" : "#4CAF50") : "rgba(255,255,255,0.15)";
+              return (
+                <button key={ch.num} onClick={() => onGoToChapter(ch)}
+                  style={{ flex:1, background: done ? "rgba(0,201,167,0.07)" : "rgba(255,255,255,0.03)", border:"1px solid " + (done ? "rgba(0,201,167,0.22)" : "rgba(255,255,255,0.07)"), borderRadius:9, padding:"9px 4px", cursor:"pointer", textAlign:"center", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.45)"; e.currentTarget.style.background = "rgba(0,201,167,0.1)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = done ? "rgba(0,201,167,0.22)" : "rgba(255,255,255,0.07)"; e.currentTarget.style.background = done ? "rgba(0,201,167,0.07)" : "rgba(255,255,255,0.03)"; }}>
+                  <div style={{ fontFamily:"var(--font-d)", fontSize:11, fontWeight:700, color: done ? "var(--teal)" : "var(--grey3)", marginBottom:5 }}>Ch.{ch.num}</div>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background:dot, margin:"0 auto" }} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Feedback alert */}
+        {!loadingFeedback && hasFeedback.length > 0 && (
+          <div style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.28)", borderRadius:14, padding:"16px 18px", marginBottom:14 }} className="fu">
+            <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+              💬 Supervisor Feedback Ready
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+              {hasFeedback.map(n => {
+                const fb = feedback[n];
+                const ch = CHAPTERS.find(c => c.num === n);
+                return (
+                  <div key={n} onClick={() => {
+                      // Mark this feedback as read
+                      const updated = { ...readFeedback, [n]: true };
+                      setReadFeedback(updated);
+                      try {
+                        const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
+                        localStorage.setItem("pjt_" + readKey, JSON.stringify(updated));
+                      } catch(e) {}
+                      onViewSubmission && onViewSubmission(ch, feedback[n]);
+                    }}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:9, padding:"10px 14px", cursor:"pointer", transition:"all 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,193,7,0.35)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", marginBottom:2 }}>Ch.{n} — {ch ? ch.title : ""}</div>
+                      <div style={{ fontSize:11, fontWeight:600, color: statusColor[fb.status] || "var(--grey3)" }}>
+                        {statusLabel[fb.status] || "Feedback received"}
+                      </div>
+                    </div>
+                    <span style={{ fontSize:12, color:"#FFC107", fontWeight:700 }}>View →</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Two-col row: Next up + Supervisor */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
+
+          {/* Next chapter */}
+          <div style={{ ...card }}>
+            <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+              {nextChapter ? "Up Next" : "All Done 🎉"}
+            </div>
+            {nextChapter ? (
+              <>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)", marginBottom:4, lineHeight:1.3 }}>
+                  Chapter {nextChapter.num}: {nextChapter.title}
+                </div>
+                <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.5, marginBottom:14 }}>
+                  {nextChapter.sections.length} sections
+                </div>
+                <button onClick={() => onGoToChapter(nextChapter)}
+                  style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"10px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer" }}
+                  onMouseEnter={e => { e.target.style.background = "var(--teal2)"; }}
+                  onMouseLeave={e => { e.target.style.background = "var(--teal)"; }}>
+                  {submittedCount === 0 ? "Start writing →" : "Keep writing →"}
+                </button>
+              </>
+            ) : (
+              <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>
+                All 5 chapters submitted. Check for final supervisor feedback.
+              </div>
+            )}
+          </div>
+
+          {/* Supervisor */}
+          <div style={{ ...card }}>
+            <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Supervisor</div>
+            {project.supervisorName ? (
+              <>
+                <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:10 }}>
+                  <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.28)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, color:"var(--teal)", flexShrink:0 }}>
+                    {project.supervisorName.replace("Code: ","").charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", lineHeight:1.3 }}>{project.supervisorName.replace("Code: ","")}</div>
+                    <div style={{ fontSize:11, color:"var(--grey3)" }}>{project.dept}</div>
+                  </div>
+                </div>
+                <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.18)", borderRadius:20, padding:"3px 10px" }}>
+                  <span style={{ width:5, height:5, borderRadius:"50%", background:"var(--teal)", display:"inline-block" }} />
+                  <span style={{ fontSize:10, color:"var(--teal)", fontWeight:600 }}>Connected</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>No supervisor connected yet.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:14 }}>
+          {[
+            { icon:"✍️", val: totalWords.toLocaleString(), label:"Words written" },
+            { icon:"📤", val: submittedCount + "/5",        label:"Submitted" },
+            { icon:"💬", val: submittedNums.filter(n => feedback[n]).length, label:"Feedback items" },
+          ].map((s, i) => (
+            <div key={i} style={{ ...card, textAlign:"center", padding:"14px 8px" }}>
+              <div style={{ fontSize:18, marginBottom:4 }}>{s.icon}</div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:20, fontWeight:800, color:"var(--teal)", lineHeight:1, marginBottom:3 }}>{s.val}</div>
+              <div style={{ fontSize:10, color:"var(--grey3)", fontWeight:600 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick actions */}
+        <div style={{ ...card, marginBottom:14 }}>
+          <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12 }}>Quick Actions</div>
+          <div className="rp-grid-4" style={{ display:"grid", gap:8 }}>
+            {[
+              { icon:"📋", label:"All chapters",    sub:"Full chapter list & status",       fn: onGoToChapters },
+              { icon:"✍️", label:"Continue writing", sub: nextChapter ? "Ch." + nextChapter.num + " — " + nextChapter.title : "All chapters done", fn: nextChapter ? () => onGoToChapter(nextChapter) : onGoToChapters },
+              { icon:"💬", label:"Check feedback",  sub: hasFeedback.length > 0 ? hasFeedback.length + " item(s) waiting" : "No new feedback",    fn: onGoToChapters },
+              { icon:"📚", label:"View progress",   sub:"Track all 5 chapters",             fn: onGoToChapters },
+            ].map((a, i) => (
+              <button key={i} onClick={a.fn}
+                style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.25)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                <div style={{ fontSize:18, marginBottom:5 }}>{a.icon}</div>
+                <div style={{ fontSize:12, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{a.label}</div>
+                <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.4 }}>{a.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Rotating tip */}
+        <div style={{ background:"rgba(0,201,167,0.04)", border:"1px solid rgba(0,201,167,0.13)", borderRadius:12, padding:"14px 18px" }}>
+          <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>💡 Writing Tip</div>
+          <div key={tipIdx} className="fi" style={{ fontSize:13, color:"rgba(196,201,208,0.9)", lineHeight:1.75, fontStyle:"italic" }}>
+            {TIPS[tipIdx]}
+          </div>
+        </div>
+
+      </div></div>
+    </div>
+  );
+}
+
+// ── Supervisor Dashboard ─────────────────────────────────────────────────────
+function SupervisorDashboard({ supervisor, onBack }) {
+  const [students,     setStudents]     = useState([]);
+  const [reviewedKeys, setReviewedKeys] = useState(new Set()); // "studentName_chNum"
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [activeStudent, setActiveStudent] = useState(null);
+  const [activeChapter, setActiveChapter] = useState(null);
+  const [chapterData,  setChapterData]  = useState(null);
+  const [feedback,     setFeedback]     = useState("");
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [status,       setStatus]       = useState("pending");
+  const [aiLoading,    setAiLoading]    = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [view,         setView]         = useState("overview");
+  const [sectionComments, setSectionComments] = useState({});
+
+  // Normalise a name the same way both student and supervisor do
+  const normName = (n) => n.trim().toLowerCase().replace(/\s+/g,"_");
+
+  const loadStudents = async (isRefresh) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      if (!supervisor.codeKey) { setLoading(false); setRefreshing(false); return; }
+      // Always fetch fresh from Firestore so supervisor sees newly connected students
+      let profile = null;
+      if (window._db) {
+        try {
+          const doc = await withTimeout(window._db.collection("pjt").doc(supervisor.codeKey).get(), 7000);
+          if (doc.exists) {
+            profile = JSON.parse(doc.data().v);
+            SUP_CACHE[supervisor.codeKey] = profile;
+            try { localStorage.setItem("pjt_" + supervisor.codeKey, doc.data().v); } catch(e) {}
+          }
+        } catch(e) { console.warn("Firestore fetch failed, using cache:", e.message); }
+      }
+      // Fallback to cache / localStorage if Firestore unavailable
+      if (!profile) {
+        profile = SUP_CACHE[supervisor.codeKey] || null;
+        if (!profile) {
+          try { const v = localStorage.getItem("pjt_" + supervisor.codeKey); if (v) profile = JSON.parse(v); } catch(e) {}
+        }
+        if (!profile && window.storage) {
+          const r2 = await safeGet(supervisor.codeKey); if (r2 && r2.value) profile = JSON.parse(r2.value);
+        }
+      }
+      if (profile) {
+        SUP_CACHE[supervisor.codeKey] = profile;
+        const list = profile.students || [];
+        const enriched = await Promise.all(list.map(async (s) => {
+          const submittedChapters = {};
+          const feedbackStatus = {};
+          const sKey = s.studentName.trim().toLowerCase().replace(/\s+/g,"_");
+          for (let n = 1; n <= 5; n++) {
+            // Load submission
+            if (profile.submissions && profile.submissions[s.studentName] && profile.submissions[s.studentName][n]) {
+              submittedChapters[n] = profile.submissions[s.studentName][n];
+            } else {
+              const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + n;
+              const sub = await safeGet(subKey);
+              if (sub && sub.value) submittedChapters[n] = JSON.parse(sub.value);
+            }
+            // Load feedback status — check profile.reviewStatus first (fastest)
+            if (submittedChapters[n]) {
+              if (profile.reviewStatus && profile.reviewStatus[s.studentName] && profile.reviewStatus[s.studentName][n]) {
+                feedbackStatus[n] = profile.reviewStatus[s.studentName][n];
+              } else {
+                // Fallback: read from separate feedback key
+                const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + n;
+                const fb = await safeGet(fbKey);
+                if (fb && fb.value) {
+                  const parsed = JSON.parse(fb.value);
+                  feedbackStatus[n] = parsed.status || "pending";
+                  // Backfill reviewStatus in profile for future loads
+                  if (!profile.reviewStatus) profile.reviewStatus = {};
+                  if (!profile.reviewStatus[s.studentName]) profile.reviewStatus[s.studentName] = {};
+                  profile.reviewStatus[s.studentName][n] = feedbackStatus[n];
+                }
+              }
+            }
+          }
+          return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
+        }));
+        setStudents(enriched);
+        // Pre-populate reviewedKeys — any chapter with saved feedback is "reviewed"
+        // regardless of status (even if supervisor left it as "pending")
+        const keys = new Set();
+        enriched.forEach(s => {
+          Object.entries(s.feedbackStatus || {}).forEach(([chNum, st]) => {
+            if (st) keys.add(s.name + "_" + parseInt(chNum)); // any saved status = reviewed
+          });
+        });
+        setReviewedKeys(keys);
+      } else {
+        setStudents([]);
+        setReviewedKeys(new Set());
+      }
+    } catch(e) { console.error("loadStudents:", e); setStudents([]); }
+    setLoading(false);
+    setRefreshing(false);
+  };
+
+  useEffect(() => { loadStudents(false); }, [supervisor.codeKey]);
+
+  // Auto-refresh every 30 seconds so supervisor sees new students in real time
+  useEffect(() => {
+    const interval = setInterval(() => { loadStudents(true); }, 30000);
+    return () => clearInterval(interval);
+  }, [supervisor.codeKey]);
+
+  // Load chapter detail + existing feedback when opening a chapter
+  useEffect(() => {
+    if (!activeStudent || !activeChapter) return;
+    const load = async () => {
+      try {
+        const sKey = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
+        const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + activeChapter;
+        const res = await safeGet(fbKey);
+        if (res && res.value) {
+          const saved = JSON.parse(res.value);
+          setFeedback(saved.feedback || "");
+          setStatus(saved.status || "pending");
+          setSectionComments(saved.sectionComments || {});
+        } else {
+          setFeedback(""); setStatus("pending");
+        }
+        setFeedbackSaved(false);
+        setAiSuggestion("");
+        setSectionComments({});
+        // Check inline submissions first
+        const cachedProf = SUP_CACHE[supervisor.codeKey];
+        const inlineSub = cachedProf && cachedProf.submissions && cachedProf.submissions[activeStudent.name] && cachedProf.submissions[activeStudent.name][activeChapter];
+        if (inlineSub) {
+          setChapterData(inlineSub);
+        } else {
+          const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + activeChapter;
+          const sub = await safeGet(subKey);
+          setChapterData(sub && sub.value ? JSON.parse(sub.value) : null);
+        }
+      } catch(e) {}
+    };
+    load();
+  }, [activeStudent, activeChapter]);
+
+  const saveFeedback = async () => {
+    if (!activeStudent || !activeChapter) return;
+    const sKey = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
+    const chNum = parseInt(activeChapter);
+    const reviewKey = activeStudent.name + "_" + chNum;
+
+    // ── Step 1: Update UI IMMEDIATELY before any async work ──────────────────
+    setReviewedKeys(prev => { const next = new Set(prev); next.add(reviewKey); return next; });
+    setStudents(prev => prev.map(s => {
+      if (s.name !== activeStudent.name) return s;
+      return { ...s, feedbackStatus: { ...(s.feedbackStatus || {}), [chNum]: status || "reviewed" } };
+    }));
+    setFeedbackSaved(true);
+    setTimeout(() => setFeedbackSaved(false), 2500);
+
+    // ── Step 2: Persist to storage in background (non-blocking) ──────────────
+    try {
+      const payload = { feedback, status: status || "reviewed", sectionComments, supervisorName: supervisor.name, savedAt: new Date().toISOString() };
+      const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + activeChapter;
+      safeSet(fbKey, JSON.stringify(payload)); // fire-and-forget
+
+      const prof = SUP_CACHE[supervisor.codeKey] || {};
+      if (!prof.feedback) prof.feedback = {};
+      if (!prof.feedback[activeStudent.name]) prof.feedback[activeStudent.name] = {};
+      prof.feedback[activeStudent.name][chNum] = payload;
+      if (!prof.reviewStatus) prof.reviewStatus = {};
+      if (!prof.reviewStatus[activeStudent.name]) prof.reviewStatus[activeStudent.name] = {};
+      prof.reviewStatus[activeStudent.name][chNum] = status || "reviewed";
+      SUP_CACHE[supervisor.codeKey] = prof;
+      safeSet(supervisor.codeKey, JSON.stringify(prof)); // fire-and-forget
+    } catch(e) { console.error("saveFeedback storage error:", e); }
+  };
+
+  const generateAiFeedback = async () => {
+    if (!chapterData) return;
+    setAiLoading(true); setAiSuggestion("");
+    try {
+      const chObj = CHAPTERS.find(c => c.num === activeChapter);
+      const sectionsText = chObj ? chObj.sections.map((s, i) => s.name + ":\n" + (chapterData.drafts && chapterData.drafts[i] ? chapterData.drafts[i] : "(empty)")).join("\n\n") : "";
+      const sys = "You are an experienced Nigerian university academic supervisor reviewing a final year project chapter. Be constructive, specific, and encouraging. Topic: " + chapterData.topic + ". Department: " + chapterData.dept + ".";
+      const prompt = "Review this Chapter " + activeChapter + " submission from a final year student.\n\n" + sectionsText + "\n\nProvide structured supervisor feedback covering:\n1. Overall quality assessment (2 sentences)\n2. Strong points (2-3 specific observations)\n3. Areas requiring revision (2-3 specific points)\n4. Recommended action: Approve / Minor revision / Major revision\n\nBe direct but encouraging. Under 280 words.";
+      const text = await callAI([{ role:"user", content:prompt }], sys);
+      setAiSuggestion(text);
+      setFeedback(text);
+    } catch(e) { setAiSuggestion("Error: " + e.message); }
+    setAiLoading(false);
+  };
+
+  const statusConfig = {
+    pending:  { label:"Pending review",    color:"var(--grey3)",  bg:"rgba(255,255,255,0.06)",  border:"rgba(255,255,255,0.1)" },
+    approved: { label:"Approved",          color:"#4CAF50",       bg:"rgba(76,175,80,0.1)",    border:"rgba(76,175,80,0.3)" },
+    minor:    { label:"Minor revision",    color:"#FFC107",       bg:"rgba(255,193,7,0.1)",    border:"rgba(255,193,7,0.3)" },
+    major:    { label:"Major revision",    color:"#FF7043",       bg:"rgba(255,112,67,0.1)",   border:"rgba(255,112,67,0.3)" },
+  };
+
+  const displayStudents = students;
+
+  if (loading) return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ width:36, height:36, border:"3px solid rgba(0,201,167,0.2)", borderTop:"3px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 14px" }} />
+        <div style={{ fontSize:13, color:"var(--grey3)" }}>Loading students...</div>
+      </div>
+    </div>
+  );
+
+  // ── Chapter detail view ──────────────────────────────────────────────────
+  if (view === "chapter" && activeStudent && activeChapter) {
+    const chObj = CHAPTERS.find(c => c.num === activeChapter);
+    const drafts = chapterData && chapterData.drafts ? chapterData.drafts : {};
+    const wordCount = Object.values(drafts).join(" ").split(/\s+/).filter(Boolean).length;
+    const sc = statusConfig[status] || statusConfig.pending;
+
+    const saveAll = async () => { await saveFeedback(); };
+
+    return (
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+
+        {/* Header */}
+        <div style={{ padding:"12px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:10, position:"sticky", top:0, background:"var(--navy)", zIndex:10, flexWrap:"wrap" }}>
+          <button onClick={() => { setView("overview"); setActiveStudent(null); setActiveChapter(null); setChapterData(null); }}
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer", flexShrink:0 }}>
+            ← Back
+          </button>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+              <span style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)" }}>{activeStudent.name} — Chapter {activeChapter}</span>
+              <span style={{ background:"rgba(255,112,67,0.12)", border:"1px solid rgba(255,112,67,0.3)", borderRadius:20, padding:"2px 9px", fontSize:10, fontWeight:700, color:"#FF7043", flexShrink:0 }}>🔒 Locked</span>
+            </div>
+            <div style={{ fontSize:11, color:"var(--grey3)", marginTop:2 }}>{wordCount} words · Read-only submission</div>
+          </div>
+          <button onClick={saveAll}
+            style={{ background: feedbackSaved ? "rgba(76,175,80,0.2)" : "var(--teal)", color: feedbackSaved ? "#4CAF50" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.4)" : "none", borderRadius:8, padding:"7px 16px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", flexShrink:0 }}>
+            {feedbackSaved ? "✓ Saved" : "Save all comments"}
+          </button>
+        </div>
+
+        {/* Lock notice */}
+        <div style={{ background:"rgba(255,112,67,0.06)", borderBottom:"1px solid rgba(255,112,67,0.15)", padding:"9px 20px", display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:13 }}>🔒</span>
+          <span style={{ fontSize:12, color:"#FF7043" }}>This chapter is locked for review. The student cannot edit it until you return it for revision.</span>
+        </div>
+
+        {/* Status bar */}
+        <div style={{ padding:"10px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, color:"var(--grey3)", marginRight:4 }}>Chapter status:</span>
+          {Object.entries(statusConfig).map(([key, cfg]) => (
+            <button key={key} onClick={() => { setStatus(key); setFeedbackSaved(false); }}
+              style={{ background: status===key ? cfg.bg : "transparent", border:"1px solid " + (status===key ? cfg.border : "rgba(255,255,255,0.08)"), borderRadius:20, padding:"4px 12px", cursor:"pointer" }}>
+              <span style={{ fontSize:11, fontWeight:600, color: status===key ? cfg.color : "var(--grey3)" }}>{cfg.label}</span>
+            </button>
+          ))}
+          <button onClick={generateAiFeedback} disabled={aiLoading}
+            style={{ marginLeft:"auto", background:"rgba(0,201,167,0.08)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"4px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer", flexShrink:0 }}>
+            {aiLoading ? "Generating..." : "✦ AI review"}
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div style={{ flex:1, overflowY:"auto", padding:"20px 22px", maxWidth:780, width:"100%", margin:"0 auto" }}>
+
+          {/* AI feedback banner */}
+          {aiSuggestion && (
+            <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:10, padding:"14px 16px", marginBottom:20 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>AI Review Summary</div>
+              <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{aiSuggestion}</div>
+            </div>
+          )}
+
+          {/* Sections with inline comment boxes */}
+          {chObj ? chObj.sections.map((s, i) => {
+            const sectionComment = sectionComments[i] || "";
+            const hasDraft = drafts[i] && drafts[i].trim().length > 0;
+            return (
+              <div key={i} style={{ marginBottom:28, background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, overflow:"hidden" }}>
+
+                {/* Section header */}
+                <div style={{ padding:"12px 16px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontFamily:"var(--font-d)", fontSize:12, fontWeight:700, color:"var(--teal)" }}>{activeChapter}.{i+1}</span>
+                  <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>{s.name}</span>
+                  <span style={{ fontSize:10, color: hasDraft ? "#4CAF50" : "var(--grey3)", marginLeft:"auto", fontWeight:600 }}>
+                    {hasDraft ? drafts[i].split(/\s+/).filter(Boolean).length + " words" : "Not written"}
+                  </span>
+                  {sectionComment.trim() && (
+                    <span style={{ background:"rgba(255,193,7,0.15)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:10, padding:"2px 8px", fontSize:10, color:"#FFC107", fontWeight:600 }}>Commented</span>
+                  )}
+                </div>
+
+                {/* Student text — locked, read-only */}
+                <div style={{ padding:"14px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                  {hasDraft ? (
+                    <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.9, whiteSpace:"pre-wrap", userSelect:"text" }}>{drafts[i]}</div>
+                  ) : (
+                    <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>No content submitted for this section.</div>
+                  )}
+                </div>
+
+                {/* Supervisor comment box */}
+                <div style={{ padding:"12px 16px", background:"rgba(255,193,7,0.03)" }}>
+                  <div style={{ fontSize:10, fontWeight:600, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:7 }}>
+                    💬 Supervisor comment on {activeChapter}.{i+1}
+                  </div>
+                  <textarea
+                    value={sectionComment}
+                    onChange={e => { setSectionComments(prev => ({ ...prev, [i]: e.target.value })); setFeedbackSaved(false); }}
+                    placeholder={"Comment on this section... e.g. 'Expand the background context to include post-2020 data. The argument in paragraph 2 needs a citation.'"}
+                    rows={3}
+                    style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:8, padding:"10px 12px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", lineHeight:1.7, resize:"vertical", outline:"none", boxSizing:"border-box" }}
+                    onFocus={e => { e.target.style.borderColor="rgba(255,193,7,0.5)"; }}
+                    onBlur={e => { e.target.style.borderColor="rgba(255,193,7,0.2)"; }}
+                  />
+                  {sectionComment.trim() && (
+                    <div style={{ fontSize:10, color:"var(--grey3)", marginTop:4, textAlign:"right" }}>
+                      {sectionComment.trim().split(/\s+/).length} words
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }) : <div style={{ color:"var(--grey3)", fontSize:13 }}>Chapter data unavailable.</div>}
+
+          {/* Overall feedback */}
+          <div style={{ marginTop:8, background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, overflow:"hidden" }}>
+            <div style={{ padding:"12px 16px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase" }}>Overall feedback to student</div>
+            </div>
+            <div style={{ padding:"14px 16px" }}>
+              <textarea
+                value={feedback}
+                onChange={e => { setFeedback(e.target.value); setFeedbackSaved(false); }}
+                placeholder={"Write your overall feedback for Chapter " + activeChapter + " here..."}
+                rows={5}
+                style={{ width:"100%", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"10px 12px", color:"var(--white)", fontSize:13, fontFamily:"var(--font-b)", lineHeight:1.8, resize:"vertical", outline:"none", boxSizing:"border-box" }}
+                onFocus={e => { e.target.style.borderColor="rgba(0,201,167,0.3)"; }}
+                onBlur={e => { e.target.style.borderColor="rgba(255,255,255,0.08)"; }}
+              />
+            </div>
+          </div>
+
+          <button onClick={saveAll} style={{ width:"100%", marginTop:16, marginBottom:32, background: feedbackSaved ? "rgba(76,175,80,0.15)" : "var(--teal)", color: feedbackSaved ? "#4CAF50" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.4)" : "none", borderRadius:10, padding:"14px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor:"pointer" }}>
+            {feedbackSaved ? "✓ All comments saved" : "Save all comments →"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
+  // ── Overview Dashboard ───────────────────────────────────────────────────
+  if (view === "overview") {
+    const totalStudents   = students.length;
+    const totalSubmitted  = students.reduce((a, s) => a + Object.keys(s.submittedChapters || {}).length, 0);
+    const pendingReview = students.reduce((a, s) =>
+      a + Object.keys(s.submittedChapters || {}).filter(chNum =>
+        !reviewedKeys.has(s.name + "_" + parseInt(chNum))
+      ).length, 0);
+    const activeStudents  = students.filter(s => Object.keys(s.submittedChapters || {}).length > 0);
+    const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"18px 20px" };
+    const statusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
+
+    // reviewQueue — only chapters NOT yet reviewed
+    // Uses reviewedKeys Set which updates the instant supervisor saves feedback
+    const reviewQueue = [];
+    students.forEach(s => {
+      Object.keys(s.submittedChapters || {}).forEach(chNum => {
+        const n = parseInt(chNum);
+        if (!reviewedKeys.has(s.name + "_" + n)) {
+          reviewQueue.push({ student: s, chNum: n });
+        }
+      });
+    });
+
+    return (
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+
+        {/* Nav */}
+        <div className="rp-nav">
+          <div>
+            <ProjectaIcon size={30} />
+            <div style={{ fontSize:11, color:"var(--grey3)" }}>Supervisor · {(supervisor.title ? supervisor.title + " " : "") + supervisor.name}</div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={() => setView("list")}
+              style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+              All students
+            </button>
+            <button onClick={() => loadStudents(true)} disabled={refreshing}
+              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color: refreshing ? "var(--grey3)" : "var(--grey2)", fontSize:12, cursor:"pointer" }}>
+              {refreshing ? "Refreshing..." : "↻ Refresh"}
+            </button>
+            <button onClick={onBack}
+              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
+              Sign out
+            </button>
+          </div>
+        </div>
+
+        <div style={{ flex:1, overflowY:"auto", padding:"26px 0 40px" }}><div className="rp-container">
+
+          {/* Greeting */}
+          <div style={{ marginBottom:24 }} className="fu">
+            <div style={{ fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>
+              {supervisor.dept} · {supervisor.uni}
+            </div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", lineHeight:1.25, marginBottom:6 }}>
+              {"Welcome back, " + (supervisor.title ? supervisor.title + " " : "") + supervisor.name.split(" ").slice(-1)[0] + "."}
+            </div>
+            <div style={{ fontSize:13, color:"var(--grey3)" }}>Here is your supervision overview.</div>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }} className="fu">
+            {[
+              { icon:"👥", val: totalStudents,  label:"Students",          sub:"connected" },
+              { icon:"📤", val: totalSubmitted, label:"Chapters submitted", sub:"awaiting review" },
+              { icon:"✅", val: activeStudents.length, label:"Active students", sub:"have submitted work" },
+            ].map((s, i) => (
+              <div key={i} style={{ ...card, textAlign:"center", padding:"16px 8px" }}>
+                <div style={{ fontSize:20, marginBottom:6 }}>{s.icon}</div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--teal)", lineHeight:1, marginBottom:4 }}>{s.val}</div>
+                <div style={{ fontSize:11, fontWeight:600, color:"var(--white)", marginBottom:2 }}>{s.label}</div>
+                <div style={{ fontSize:10, color:"var(--grey3)" }}>{s.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Supervisor code card */}
+          <div style={{ ...card, background:"rgba(0,201,167,0.05)", border:"1px solid rgba(0,201,167,0.2)", marginBottom:16 }} className="fu">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+              <div>
+                <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>Your Supervisor Code</div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:34, fontWeight:800, color:"var(--white)", letterSpacing:"6px", lineHeight:1 }}>{supervisor.code}</div>
+                <div style={{ fontSize:11, color:"var(--grey3)", marginTop:6 }}>Students enter this code during project setup to connect to you.</div>
+              </div>
+              <button
+                onClick={() => { try { navigator.clipboard && navigator.clipboard.writeText(supervisor.code); } catch(e) {} }}
+                style={{ background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:9, padding:"9px 16px", color:"var(--teal)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", flexShrink:0 }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.22)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,201,167,0.12)"; }}>
+                Copy code
+              </button>
+            </div>
+          </div>
+
+          {/* Review queue */}
+          <div style={{ ...card, marginBottom:16 }} className="fu">
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+              <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase" }}>
+                Review Queue
+              </div>
+              {reviewQueue.length > 0 && (
+                <div style={{ background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:20, padding:"2px 10px", fontSize:10, fontWeight:700, color:"#FFC107" }}>
+                  {reviewQueue.length} pending
+                </div>
+              )}
+            </div>
+            {reviewQueue.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"20px 0" }}>
+                <div style={{ fontSize:24, marginBottom:8 }}>✓</div>
+                <div style={{ fontSize:13, color:"var(--grey3)" }}>No pending submissions right now.</div>
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {reviewQueue.slice(0, 5).map((item, i) => {
+                  const ch = CHAPTERS.find(c => c.num === item.chNum);
+                  const subCount = Object.keys(item.student.submittedChapters || {}).length;
+                  return (
+                    <div key={i}
+                      onClick={() => { setActiveStudent(item.student); setActiveChapter(item.chNum); setView("chapter"); }}
+                      style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", transition:"all 0.15s" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.25)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", marginBottom:2 }}>{item.student.name}</div>
+                        <div style={{ fontSize:11, color:"var(--grey3)" }}>
+                          {"Chapter " + item.chNum + (ch ? ": " + ch.title : "")}
+                        </div>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+                        <span style={{ background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:6, padding:"3px 8px", fontSize:10, fontWeight:600, color:"#FFC107" }}>
+                          Review →
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {reviewQueue.length > 5 && (
+                  <button onClick={() => setView("list")}
+                    style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.08)", borderRadius:9, padding:"9px", color:"var(--grey3)", fontSize:12, cursor:"pointer", fontFamily:"var(--font-d)", fontWeight:600 }}>
+                    {"+ " + (reviewQueue.length - 5) + " more — view all students"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Student progress overview */}
+          {students.length > 0 && (
+            <div style={{ ...card, marginBottom:16 }} className="fu">
+              <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:14 }}>
+                Student Progress
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {students.map((s, i) => {
+                  const subCount = Object.keys(s.submittedChapters || {}).length;
+                  const pct = Math.round((subCount / 5) * 100);
+                  return (
+                    <div key={i}
+                      onClick={() => setView("list")}
+                      style={{ cursor:"pointer" }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+                        <div>
+                          <span style={{ fontSize:12, fontWeight:600, color:"var(--white)", marginRight:8 }}>{s.name}</span>
+                          <span style={{ fontSize:11, color:"var(--grey3)" }}>{s.dept}</span>
+                        </div>
+                        <span style={{ fontSize:11, fontWeight:700, color: subCount > 0 ? "var(--teal)" : "var(--grey3)" }}>{subCount}/5</span>
+                      </div>
+                      <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:999, height:6, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:pct + "%", background: pct === 100 ? "#4CAF50" : "linear-gradient(90deg, #007A65, #00C9A7)", borderRadius:999, transition:"width 0.5s" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state — no students yet */}
+          {students.length === 0 && !loading && (
+            <div style={{ ...card, textAlign:"center", padding:"28px 20px" }} className="fu">
+              <div style={{ fontSize:32, marginBottom:10 }}>👋</div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:16, fontWeight:700, color:"var(--white)", marginBottom:6 }}>No students yet</div>
+              <div style={{ fontSize:13, color:"var(--grey3)", lineHeight:1.7, marginBottom:16 }}>
+                Share your code with your students. They enter it during project setup to connect to you.
+              </div>
+              <div style={{ background:"rgba(0,0,0,0.3)", border:"2px solid rgba(0,201,167,0.35)", borderRadius:10, padding:"12px 20px", fontFamily:"var(--font-d)", fontSize:32, fontWeight:800, color:"var(--white)", letterSpacing:"6px", display:"inline-block" }}>
+                {supervisor.code}
+              </div>
+            </div>
+          )}
+
+          {/* Quick actions */}
+          <div style={{ ...card }} className="fu">
+            <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12 }}>Quick Actions</div>
+            <div className="rp-grid-4" style={{ display:"grid", gap:8 }}>
+              {[
+                { icon:"👥", label:"All students",    sub:"View full student list",         fn: () => setView("list") },
+                { icon:"📋", label:"Review queue",    sub: reviewQueue.length + " pending", fn: () => setView("list") },
+                { icon:"↻",  label:"Refresh data",   sub:"Check for new submissions",      fn: () => loadStudents(true) },
+                { icon:"🔑", label:"Your code",       sub: supervisor.code,                 fn: () => { try { navigator.clipboard && navigator.clipboard.writeText(supervisor.code); } catch(e) {} } },
+              ].map((a, i) => (
+                <button key={i} onClick={a.fn}
+                  style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.25)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                  <div style={{ fontSize:18, marginBottom:5 }}>{a.icon}</div>
+                  <div style={{ fontSize:12, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{a.label}</div>
+                  <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.4 }}>{a.sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div></div>
+      </div>
+    );
+  }
+
+  // ── Student list view ─────────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+      {/* Header */}
+      <div className="rp-nav">
+        <div>
+          <ProjectaIcon size={30} />
+          <div style={{ fontSize:11, color:"var(--grey3)" }}>Supervisor · {(supervisor.title ? supervisor.title + " " : "") + supervisor.name}</div>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={() => setView("overview")}
+            style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"7px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+            ← Overview
+          </button>
+          <button onClick={() => loadStudents(true)} disabled={refreshing}
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"7px 13px", color: refreshing ? "var(--grey3)" : "var(--grey2)", fontSize:12, cursor:"pointer" }}>
+            {refreshing ? "..." : "↻ Refresh"}
+          </button>
+          <button onClick={onBack}
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"7px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
+            Sign out
+          </button>
+        </div>
+      </div>
+
+      <div style={{ flex:1, padding:"24px 22px", maxWidth:700, margin:"0 auto", width:"100%" }}>
+        {/* Stats bar */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:28 }} className="fu">
+          {[
+            { label:"Students",           value: displayStudents.length },
+            { label:"Chapters submitted", value: displayStudents.reduce((a, s) => a + Object.keys(s.submittedChapters||{}).length, 0) },
+            { label:"Pending review",     value: displayStudents.reduce((a, s) => a + Object.keys(s.submittedChapters||{}).length, 0) },
+          ].map((stat, i) => (
+            <div key={i} style={{ background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 16px" }}>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--teal)", marginBottom:2 }}>{stat.value}</div>
+              <div style={{ fontSize:11, color:"var(--grey3)" }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Section label */}
+        <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:14 }}>
+          Your Students — {supervisor.dept} · {supervisor.uni}
+        </div>
+
+        {/* Student cards */}
+        <div className="rp-students-grid" style={{ display:"grid", gridTemplateColumns:"1fr", gap:12 }}>
+          {displayStudents.map((s, si) => {
+            const subCount = Object.keys(s.submittedChapters || {}).length;
+            return (
+              <div key={si} className="fu" style={{ animationDelay: (si * 0.06) + "s" }}>
+                <div style={{ background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"18px 20px" }}>
+                  {/* Student header */}
+                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:14 }}>
+                    <div>
+                      <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:700, color:"var(--white)", marginBottom:3 }}>{s.name}</div>
+                      <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.5 }}>{s.topic}</div>
+                      <div style={{ fontSize:11, color:"var(--grey3)", marginTop:3 }}>{s.dept} · {s.uni}</div>
+                    </div>
+                    <div style={{ flexShrink:0, textAlign:"right" }}>
+                      <div style={{ fontFamily:"var(--font-d)", fontSize:20, fontWeight:800, color: subCount > 0 ? "var(--teal)" : "var(--grey3)" }}>{subCount}/5</div>
+                      <div style={{ fontSize:10, color:"var(--grey3)" }}>submitted</div>
+                    </div>
+                  </div>
+
+                  {/* Chapter pills */}
+                  <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+                    {[1,2,3,4,5].map(n => {
+                      const hasSub = s.submittedChapters && s.submittedChapters[n];
+                      return (
+                        <button key={n}
+                          onClick={() => { if (hasSub) { setActiveStudent(s); setActiveChapter(n); setView("chapter"); } }}
+                          style={{ background: hasSub ? "rgba(0,201,167,0.1)" : "rgba(255,255,255,0.03)", border:"1px solid " + (hasSub ? "rgba(0,201,167,0.3)" : "rgba(255,255,255,0.08)"), borderRadius:8, padding:"7px 12px", cursor: hasSub ? "pointer" : "default", fontFamily:"var(--font-d)", fontWeight:600, fontSize:12, color: hasSub ? "var(--teal)" : "var(--grey3)" }}
+                          onMouseEnter={e => { if (hasSub) { e.currentTarget.style.background = "rgba(0,201,167,0.18)"; } }}
+                          onMouseLeave={e => { if (hasSub) { e.currentTarget.style.background = "rgba(0,201,167,0.1)"; } }}>
+                          Ch.{n} {hasSub ? "✓" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {subCount === 0 && (
+                    <div style={{ marginTop:12, fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>No chapters submitted yet.</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {displayStudents.length === 0 && !loading && (
+          <div style={{ marginTop:8, padding:16, background:"rgba(0,201,167,0.05)", border:"1px solid rgba(0,201,167,0.12)", borderRadius:12, fontSize:13, color:"var(--grey3)", lineHeight:1.8, marginBottom:16 }}>
+            <div style={{ fontWeight:700, color:"var(--teal)", marginBottom:8 }}>No students connected yet</div>
+            <div style={{ marginBottom:8 }}>Tell your students to enter this name exactly in the <strong style={{ color:"var(--white)" }}>Supervisor Name</strong> field when setting up their project:</div>
+            <div style={{ background:"rgba(0,0,0,0.3)", border:"2px solid rgba(0,201,167,0.4)", borderRadius:10, padding:"14px 18px", fontFamily:"var(--font-d)", fontSize:36, fontWeight:800, color:"var(--white)", letterSpacing:"6px", textAlign:"center", marginBottom:8 }}>{supervisor.code}</div>
+            <div style={{ fontSize:11 }}>Share this code with your students. They enter it during project setup. Then hit ↻ Refresh.</div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
+function App() {
+  const [role,        setRole]        = useState(null);  // null | "student" | "supervisor"
+  const [supervisor,  setSupervisor]  = useState(null);
+  const [screen,      setScreen]      = useState("loading");
+  const [project,     setProject]     = useState(null);
+  const [chapter,     setChapter]     = useState(null);
+  const [allDrafts,   setAllDrafts]   = useState({});
+  const [viewChapter, setViewChapter] = useState(null);
+  const [viewChapterFeedback, setViewChapterFeedback] = useState(null);
+  const [savedProject, setSavedProject] = useState(null);
+  const [studentEmail,  setStudentEmail]  = useState(null);
+
+  // ── Load everything from storage on first mount ──────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Restore session from localStorage
+        const roleRes = await safeGet(ROLE_KEY);
+        if (roleRes && roleRes.value) {
+          const saved = JSON.parse(roleRes.value);
+          if (saved.role === "supervisor" && saved.supervisor) {
+            setSupervisor(saved.supervisor);
+            setRole("supervisor");
+            if (saved.supervisor.codeKey && !SUP_CACHE[saved.supervisor.codeKey]) {
+              const r = await safeGet(saved.supervisor.codeKey);
+              if (r && r.value) SUP_CACHE[saved.supervisor.codeKey] = JSON.parse(r.value);
+              else SUP_CACHE[saved.supervisor.codeKey] = { name:saved.supervisor.name, dept:saved.supervisor.dept, uni:saved.supervisor.uni, code:saved.supervisor.code, students:[] };
+            }
+            if (saved.supervisor.email) ACCOUNTS_CACHE[saved.supervisor.email] = Object.assign({ role:"supervisor" }, saved.supervisor);
+            setScreen("supervisor_dashboard");
+            return;
+          }
+          if (saved.role === "student" && saved.email) {
+            setRole("student");
+            setStudentEmail(saved.email);
+            if (saved.account) ACCOUNTS_CACHE[saved.email] = saved.account;
+            const res = await safeGet(STORAGE_KEY + "_" + saved.email);
+            if (res && res.value) {
+              const st = JSON.parse(res.value);
+              const p = st.project || null;
+              setSavedProject(p);
+              setAllDrafts(st.drafts || {});
+              setProject(p);
+              setScreen(p ? "dashboard" : "setup");
+            } else {
+              setScreen("setup");
+            }
+            return;
+          }
+        }
+      } catch(e) { console.warn("Session restore failed:", e); }
+      setScreen("auth");
+    };
+    load();
+  }, []);
+
+  // ── Save everything to storage whenever project or drafts change ─────────
+  useEffect(() => {
+    if (!project) return;
+    try {
+      const key = studentEmail ? STORAGE_KEY + "_" + studentEmail : STORAGE_KEY;
+      safeSet(key, JSON.stringify({ project, drafts: allDrafts }));
+    } catch(e) {}
+  }, [project, allDrafts, studentEmail]);
+
+  const handleContinue = () => {
+    setProject(savedProject);
+    setScreen("chapters");
+  };
+
+  const handleClear = async () => {
+    try {
+      const key = studentEmail ? STORAGE_KEY + "_" + studentEmail : STORAGE_KEY;
+      await safeDel(key);
+    } catch(e) {}
+    setSavedProject(null);
+    setProject(null);
+    setAllDrafts({});
+    setScreen("setup");
+  };
+
+  const handleNewProject = async (info) => {
+    let supProfile = null;
+    let codeKey = null;
+
+    if (info.supervisorCode) {
+      codeKey = "sup_code_" + info.supervisorCode.replace("-","");
+      // 1. Check in-memory cache first (supervisor logged in same session)
+      if (SUP_CACHE[codeKey]) {
+        supProfile = SUP_CACHE[codeKey];
+        console.log("Supervisor found in cache:", supProfile.name);
+      } else {
+        // 2. Fall back to storage
+        try {
+          if (window.storage) {
+            const r = await safeGet(codeKey);
+            if (r && r.value) { supProfile = JSON.parse(r.value); console.log("Supervisor found in storage:", supProfile.name); }
+          }
+        } catch(e) { console.warn("Storage lookup failed:", e.message); }
+      }
+    }
+
+    const p = { ...info, completed:0, submitted:{},
+      supervisorName: supProfile ? supProfile.name : ("Code: " + (info.supervisorCode || "?")),
+      supervisorCodeKey: codeKey
+    };
+    setProject(p);
+    setSavedProject(p);
+    setAllDrafts({});
+
+    // Register student in supervisor profile — write to BOTH localStorage and Firestore
+    if (codeKey) {
+      const prof = SUP_CACHE[codeKey] || supProfile || { name: p.supervisorName, code: info.supervisorCode, students: [], submissions: {} };
+      const students = prof.students || [];
+      const filtered = students.filter(s => s.studentName !== info.studentName);
+      filtered.push({ studentName: info.studentName, topic: info.topic, dept: info.dept, uni: info.uni, email: studentEmail || "" });
+      prof.students = filtered;
+      if (!prof.submissions) prof.submissions = {};
+      SUP_CACHE[codeKey] = prof;
+      const profStr = JSON.stringify(prof);
+      // Write localStorage immediately
+      try { localStorage.setItem("pjt_" + codeKey, profStr); } catch(e) {}
+      // Write Firestore and WAIT for it (with timeout) so supervisor sees student
+      try {
+        if (window._db) {
+          await withTimeout(
+            window._db.collection("pjt").doc(codeKey).set({ v: profStr, t: Date.now() }),
+            8000
+          );
+        }
+      } catch(e) { console.warn("Firestore sync warning:", e.message); }
+      console.log("Student registered:", info.studentName, "under", codeKey);
+    }
+    setScreen("dashboard");
+  };
+
+  const handleComplete = (num, draftsForChapter) => {
+    const p = project;
+    setProject(prev => {
+      const updated = { ...prev, completed: Math.max(prev.completed||0, num), submitted: { ...(prev.submitted||{}), [num]: true } };
+      setSavedProject(updated);
+      return updated;
+    });
+    if (p && p.supervisorCodeKey && p.studentName) {
+      const subPayload = {
+        drafts: draftsForChapter || {},
+        topic: p.topic, dept: p.dept, uni: p.uni,
+        studentName: p.studentName, submittedAt: new Date().toISOString()
+      };
+      // Write into SUP_CACHE directly — supervisor reads same object
+      const prof = SUP_CACHE[p.supervisorCodeKey];
+      if (prof) {
+        if (!prof.submissions) prof.submissions = {};
+        if (!prof.submissions[p.studentName]) prof.submissions[p.studentName] = {};
+        prof.submissions[p.studentName][num] = subPayload;
+        console.log("Chapter written to cache:", p.supervisorCodeKey, p.studentName, "ch" + num);
+      }
+      // Also persist to storage as backup
+      const sKey = p.studentName.trim().toLowerCase().replace(/\s+/g,"_");
+      const subKey = p.supervisorCodeKey + "_sub_" + sKey + "_ch" + num;
+      safeSet(subKey, JSON.stringify(subPayload));
+      // Re-persist the whole profile with submissions
+      if (prof) safeSet(p.supervisorCodeKey, JSON.stringify(prof));
+    }
+  };
+
+  if (screen === "loading") {
+    return (
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ width:40, height:40, border:"3px solid rgba(0,201,167,0.2)", borderTop:"3px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 16px" }} />
+          <div style={{ fontFamily:"var(--font-d)", fontSize:14, color:"var(--grey3)" }}>Loading your project...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleLogin = async (acc) => {
+    // acc = { email, role, name, dept, uni, code?, codeKey? }
+    setRole(acc.role);
+    if (acc.role === "supervisor") {
+      const sup = { name: acc.name, dept: acc.dept, uni: acc.uni, code: acc.code, codeKey: acc.codeKey, title: acc.title || "" };
+      setSupervisor(sup);
+      // Restore SUP_CACHE if not already present
+      if (acc.codeKey && !SUP_CACHE[acc.codeKey]) {
+        const r = await safeGet(acc.codeKey);
+        if (r && r.value) SUP_CACHE[acc.codeKey] = JSON.parse(r.value);
+        else SUP_CACHE[acc.codeKey] = { name: acc.name, dept: acc.dept, uni: acc.uni, code: acc.code, students: [] };
+      }
+      await safeSet(ROLE_KEY, JSON.stringify({ role:"supervisor", supervisor:{ name:acc.name, dept:acc.dept, uni:acc.uni, code:acc.code, codeKey:acc.codeKey, email:acc.email, title:acc.title } }));
+      setScreen("supervisor_dashboard");
+    } else {
+      // Student — load their saved project
+      const res = await safeGet(STORAGE_KEY + "_" + acc.email);
+      if (res && res.value) {
+        const saved = JSON.parse(res.value);
+        setSavedProject(saved.project || null);
+        setAllDrafts(saved.drafts || {});
+        setProject(saved.project || null);
+        setScreen(saved.project ? "dashboard" : "setup");
+      } else {
+        setScreen("setup");
+      }
+      await safeSet(ROLE_KEY, JSON.stringify({ role:"student", email:acc.email, name:acc.name, account:acc }));
+      setStudentEmail(acc.email);
+    }
+  };
+
+  const handleSupervisorSignOut = () => {
+    setRole(null);
+    setSupervisor(null);
+    setScreen("auth");
+  };
+
+  const handleSwitchAccount = async () => {
+    await safeDel(ROLE_KEY);
+    setSupervisor(null);
+    setRole(null);
+    setScreen("auth");
+  };
+
+  const handleSignOut = async () => {
+    await safeDel(ROLE_KEY);
+    setRole(null); setSupervisor(null); setStudentEmail(null);
+    setProject(null); setSavedProject(null); setAllDrafts({});
+    setScreen("auth");
+  };
+
+  return (
+    <>
+      <style>{STYLES}</style>
+      {screen === "auth" && (
+        <AuthScreen
+          onLogin={handleLogin}
+          savedSupervisor={supervisor}
+          onReturnToDashboard={() => { setRole("supervisor"); setScreen("supervisor_dashboard"); }}
+          onSwitchAccount={handleSwitchAccount}
+        />
+      )}
+      {screen === "supervisor_dashboard" && supervisor && (
+        <SupervisorDashboard supervisor={supervisor} onBack={handleSupervisorSignOut} />
+      )}
+      {screen === "setup" && (
+        <SetupScreen
+          onBack={handleSignOut}
+          onSubmit={handleNewProject}
+        />
+      )}
+      {screen === "dashboard" && project && (
+        <StudentDashboard
+          project={project}
+          allDrafts={allDrafts}
+          onGoToChapter={ch => { setChapter(ch); setScreen("writing"); }}
+          onGoToChapters={() => setScreen("chapters")}
+          onViewSubmission={(ch, fb) => { setViewChapter(ch); setViewChapterFeedback(fb || null); }}
+          onSignOut={handleSignOut}
+        />
+      )}
+      {screen === "chapters" && project && (
+        <ChaptersScreen
+          project={project}
+          allDrafts={allDrafts}
+          onHome={() => setScreen("dashboard")}
+          onBack={() => setScreen("setup")}
+          onSelect={ch => { setChapter(ch); setScreen("writing"); }}
+          onViewSubmission={(ch, fb) => { setViewChapter(ch); setViewChapterFeedback(fb || null); }}
+        />
+      )}
+      {screen === "writing" && project && chapter && (
+        <WritingScreen
+          project={project}
+          chapter={chapter}
+          initialDrafts={allDrafts[chapter.num] || {}}
+          onHome={() => setScreen("dashboard")}
+          onBack={() => setScreen("chapters")}
+          onSaveDrafts={(chNum, drafts) => setAllDrafts(p => ({ ...p, [chNum]: drafts }))}
+          onComplete={handleComplete}
+        />
+      )}
+      {viewChapter && (
+        <SubmissionViewer
+          project={project}
+          chapter={viewChapter}
+          drafts={allDrafts[viewChapter.num] || {}}
+          supervisorFeedback={viewChapterFeedback}
+          onClose={() => { setViewChapter(null); setViewChapterFeedback(null); }}
+          onDownload={() => { buildDownload(project, viewChapter, allDrafts[viewChapter.num] || {}); }}
+        />
+      )}
+    </>
+  );
+}
+
+
+    // ── Firebase setup banner ────────────────────────────────────────────────
+    function FirebaseBanner() {
+      const [show, setShow] = useState(!window._fbConfigured);
+      if (!show) return null;
+      return (
+        <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:9999, background:"#1A2E42", borderBottom:"2px solid #FFC107", padding:"10px 18px", fontFamily:"sans-serif", fontSize:12, color:"#C4C9D0", display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+          <span style={{ color:"#FFC107", fontWeight:700 }}>⚠ Local mode</span>
+          <span>Accounts only on this device. Add Firebase config for cross-device login.</span>
+          <a href="https://console.firebase.google.com" target="_blank" style={{ color:"#00C9A7", fontWeight:600 }}>Set up Firebase →</a>
+          <button onClick={() => setShow(false)} style={{ marginLeft:"auto", background:"transparent", border:"1px solid rgba(255,255,255,0.15)", borderRadius:5, padding:"3px 10px", color:"#8892A0", cursor:"pointer", fontSize:11 }}>✕</button>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<><FirebaseBanner /><App /></>);
+  </script>
+</body>
+</html>
