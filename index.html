@@ -89,6 +89,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -334,35 +335,22 @@ function makeCode() {
 }
 
 async function callAI(messages, systemPrompt) {
-  // Uses OpenRouter API — free tier, works globally, no proxy needed
-  const OR_KEY = "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";
-  const url = "https://openrouter.ai/api/v1/chat/completions";
+  // Use Netlify proxy (/.netlify/functions/ai) when hosted on Netlify
+  // Falls back to direct API call when running as Claude artifact (has built-in auth)
+  const isNetlify = window.location.hostname.includes("netlify.app") || window.location.hostname.includes("netlify.com");
+  const url = isNetlify ? "/.netlify/functions/ai" : "https://api.anthropic.com/v1/messages";
 
-  const allMessages = systemPrompt
-    ? [{ role: "system", content: systemPrompt }, ...messages]
-    : messages;
+  const headers = { "Content-Type": "application/json" };
+  const bodyObj = { model:"claude-sonnet-4-20250514", max_tokens:1000, system:systemPrompt, messages };
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + OR_KEY,
-        "HTTP-Referer": "https://ericadam643-star.github.io/projectaai/",
-        "X-Title": "Projecta"
-      },
-      body: JSON.stringify({
-        model: "meta-llama/llama-3.3-70b-instruct:free",
-        messages: allMessages,
-        max_tokens: 1000
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || "API error " + res.status);
-    return data.choices?.[0]?.message?.content || "";
-  } catch(e) {
-    throw new Error("AI unavailable: " + e.message);
-  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(bodyObj),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "API error " + res.status);
+  return data.content.map(b => b.text || "").join("");
 }
 
 function buildDownload(project, chapter, drafts) {
@@ -1657,6 +1645,15 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
   ];
 
   useEffect(() => {
+    // Load which feedback items have already been read
+    try {
+      const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
+      const stored = localStorage.getItem("pjt_" + readKey);
+      if (stored) setReadFeedback(JSON.parse(stored));
+    } catch(e) {}
+  }, [project.studentName]);
+
+  useEffect(() => {
     const load = async () => {
       if (!project || !project.supervisorCodeKey) { setLoadingFeedback(false); return; }
       const fb = {};
@@ -1786,7 +1783,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
                     <div>
                       <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", marginBottom:2 }}>Ch.{n} — {ch ? ch.title : ""}</div>
                       <div style={{ fontSize:11, fontWeight:600, color: statusColor[fb.status] || "var(--grey3)" }}>
-                        {statusLabel[fb.status] || "Feedback received"}
+                        {fb.status && fb.status !== "pending" ? statusLabel[fb.status] : "Feedback received"}
                       </div>
                     </div>
                     <span style={{ fontSize:12, color:"#FFC107", fontWeight:700 }}>View →</span>
