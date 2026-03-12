@@ -129,6 +129,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -603,6 +604,12 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
   };
 
   useEffect(() => { loadFeedback(); }, [project.supervisorCodeKey, project.studentName]);
+
+  // Also reload feedback whenever we return to this screen
+  useEffect(() => {
+    const timer = setTimeout(() => { loadFeedback(); }, 800);
+    return () => clearTimeout(timer);
+  }, []);
   const submittedCount = Object.keys(project.submitted || {}).length;
   const chStatusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
   const chStatusLabel = { pending:"Pending review", approved:"✓ Approved", minor:"Minor revision needed", major:"Major revision needed" };
@@ -2524,18 +2531,27 @@ function SupervisorDashboard({ supervisor, onBack }) {
               const sub = await safeGet(subKey);
               if (sub && sub.value) submittedChapters[n] = JSON.parse(sub.value);
             }
-            // Load feedback status — check profile.reviewStatus first (fastest)
+            // Load feedback status — always check fbKey directly (most accurate)
             if (submittedChapters[n]) {
-              if (profile.reviewStatus && profile.reviewStatus[s.studentName] && profile.reviewStatus[s.studentName][n]) {
+              const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + n;
+              const resubFlagKey = supervisor.codeKey + "_resub_" + sKey + "_ch" + n;
+              // Check resubmit flag first — student may have resubmitted after last feedback
+              const resubFlag = await safeGet(resubFlagKey);
+              if (resubFlag && resubFlag.value) {
+                // Student resubmitted — always treat as pending regardless of old reviewStatus
+                feedbackStatus[n] = "pending";
+                // Update profile.reviewStatus to reflect this
+                if (!profile.reviewStatus) profile.reviewStatus = {};
+                if (!profile.reviewStatus[s.studentName]) profile.reviewStatus[s.studentName] = {};
+                profile.reviewStatus[s.studentName][n] = "pending";
+              } else if (profile.reviewStatus && profile.reviewStatus[s.studentName] && profile.reviewStatus[s.studentName][n]) {
                 feedbackStatus[n] = profile.reviewStatus[s.studentName][n];
               } else {
                 // Fallback: read from separate feedback key
-                const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + n;
                 const fb = await safeGet(fbKey);
                 if (fb && fb.value) {
                   const parsed = JSON.parse(fb.value);
                   feedbackStatus[n] = parsed.status || "pending";
-                  // Backfill reviewStatus in profile for future loads
                   if (!profile.reviewStatus) profile.reviewStatus = {};
                   if (!profile.reviewStatus[s.studentName]) profile.reviewStatus[s.studentName] = {};
                   profile.reviewStatus[s.studentName][n] = feedbackStatus[n];
@@ -2640,6 +2656,13 @@ function SupervisorDashboard({ supervisor, onBack }) {
       prof.reviewStatus[activeStudent.name][chNum] = status || "reviewed";
       SUP_CACHE[supervisor.codeKey] = prof;
       safeSet(supervisor.codeKey, JSON.stringify(prof)); // fire-and-forget
+
+      // Clear resubmit flag now that supervisor has reviewed this version
+      try {
+        const sKeyFb = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
+        const resubFlagKey = supervisor.codeKey + "_resub_" + sKeyFb + "_ch" + chNum;
+        safeDel(resubFlagKey);
+      } catch(e) {}
 
       // Notify student
       const stuKey = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
@@ -3512,22 +3535,28 @@ function App() {
       const sKey = p.studentName.trim().toLowerCase().replace(/\s+/g,"_");
       const subKey = p.supervisorCodeKey + "_sub_" + sKey + "_ch" + num;
       safeSet(subKey, JSON.stringify(subPayload));
-      // Clear the feedback key so supervisor sees it as pending again on resubmit
+      // On resubmit: write a dedicated resubmit flag and reset feedback status
       if (version > 1) {
         const fbKey = p.supervisorCodeKey + "_fb_" + sKey + "_ch" + num;
+        const resubFlagKey = p.supervisorCodeKey + "_resub_" + sKey + "_ch" + num;
+        const resubFlag = { version, resubmittedAt: new Date().toISOString(), studentName: p.studentName };
+        // Write resubmit flag to shared storage — supervisor reads this
+        safeSet(resubFlagKey, JSON.stringify(resubFlag));
+        // Also reset the feedback status to pending in shared storage
         const oldFb = await safeGet(fbKey);
         if (oldFb && oldFb.value) {
           try {
             const oldFbParsed = JSON.parse(oldFb.value);
-            // Archive old feedback then reset status to pending
-            oldFbParsed.archivedStatus = oldFbParsed.status;
+            oldFbParsed.archivedStatus = oldFbParsed.archivedStatus || oldFbParsed.status;
             oldFbParsed.status = "pending";
-            oldFbParsed.resubmittedAt = new Date().toISOString();
+            oldFbParsed.resubmittedAt = resubFlag.resubmittedAt;
             oldFbParsed.resubmitVersion = version;
-            safeSet(fbKey, JSON.stringify(oldFbParsed));
-            // Update SUP_CACHE feedback too
+            await safeSet(fbKey, JSON.stringify(oldFbParsed));
             if (prof && prof.feedback && prof.feedback[p.studentName] && prof.feedback[p.studentName][num]) {
               prof.feedback[p.studentName][num] = oldFbParsed;
+            }
+            if (prof && prof.reviewStatus && prof.reviewStatus[p.studentName]) {
+              prof.reviewStatus[p.studentName][num] = "pending";
             }
           } catch(e) {}
         }
