@@ -128,6 +128,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2545,12 +2546,13 @@ function SupervisorDashboard({ supervisor, onBack }) {
           return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
         }));
         setStudents(enriched);
-        // Pre-populate reviewedKeys — any chapter with saved feedback is "reviewed"
-        // regardless of status (even if supervisor left it as "pending")
+        // Pre-populate reviewedKeys — chapters with saved feedback are "reviewed"
+        // EXCEPT: if student has resubmitted since last feedback, treat as pending again
         const keys = new Set();
         enriched.forEach(s => {
           Object.entries(s.feedbackStatus || {}).forEach(([chNum, st]) => {
-            if (st) keys.add(s.name + "_" + parseInt(chNum)); // any saved status = reviewed
+            // Only mark reviewed if status is not pending (pending means resubmitted)
+            if (st && st !== "pending") keys.add(s.name + "_" + parseInt(chNum));
           });
         });
         setReviewedKeys(keys);
@@ -3297,6 +3299,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
                         : fbStatus === "approved" ? "Ch." + n + " ✓"
                         : fbStatus === "minor" ? "Ch." + n + " ~"
                         : fbStatus === "major" ? "Ch." + n + " !"
+                        : fbStatus === "pending" ? "Ch." + n + " 🔄"
                         : fbStatus ? "Ch." + n + " ✓"
                         : "Ch." + n + " ●";
                       return (
@@ -3317,6 +3320,9 @@ function SupervisorDashboard({ supervisor, onBack }) {
                       <span style={{ fontSize:10, color:"var(--grey3)" }}>● Pending</span>
                       <span style={{ fontSize:10, color:"#4CAF50" }}>✓ Approved</span>
                       <span style={{ fontSize:10, color:"#FFC107" }}>~ Minor revision</span>
+                      {(s.feedbackStatus[parseInt(chNum)] === "pending") && (
+                        <span style={{ fontSize:10, color:"var(--teal)", fontWeight:700 }}>🔄 Resubmitted</span>
+                      )}
                       <span style={{ fontSize:10, color:"#FF7043" }}>! Major revision</span>
                     </div>
                   )}
@@ -3494,22 +3500,54 @@ function App() {
         if (!prof.submissions) prof.submissions = {};
         if (!prof.submissions[p.studentName]) prof.submissions[p.studentName] = {};
         prof.submissions[p.studentName][num] = subPayload;
-        console.log("Chapter written to cache:", p.supervisorCodeKey, p.studentName, "ch" + num);
+        // Clear reviewStatus so this chapter re-enters the supervisor queue
+        if (version > 1) {
+          if (prof.reviewStatus && prof.reviewStatus[p.studentName]) {
+            delete prof.reviewStatus[p.studentName][num];
+          }
+        }
+        console.log("Chapter written to cache:", p.supervisorCodeKey, p.studentName, "ch" + num, "v" + version);
       }
       // Also persist to storage as backup
       const sKey = p.studentName.trim().toLowerCase().replace(/\s+/g,"_");
       const subKey = p.supervisorCodeKey + "_sub_" + sKey + "_ch" + num;
       safeSet(subKey, JSON.stringify(subPayload));
+      // Clear the feedback key so supervisor sees it as pending again on resubmit
+      if (version > 1) {
+        const fbKey = p.supervisorCodeKey + "_fb_" + sKey + "_ch" + num;
+        const oldFb = await safeGet(fbKey);
+        if (oldFb && oldFb.value) {
+          try {
+            const oldFbParsed = JSON.parse(oldFb.value);
+            // Archive old feedback then reset status to pending
+            oldFbParsed.archivedStatus = oldFbParsed.status;
+            oldFbParsed.status = "pending";
+            oldFbParsed.resubmittedAt = new Date().toISOString();
+            oldFbParsed.resubmitVersion = version;
+            safeSet(fbKey, JSON.stringify(oldFbParsed));
+            // Update SUP_CACHE feedback too
+            if (prof && prof.feedback && prof.feedback[p.studentName] && prof.feedback[p.studentName][num]) {
+              prof.feedback[p.studentName][num] = oldFbParsed;
+            }
+          } catch(e) {}
+        }
+      }
       // Re-persist the whole profile with submissions
       if (prof) safeSet(p.supervisorCodeKey, JSON.stringify(prof));
 
       // Notify supervisor
       const supKey = p.supervisorCodeKey.replace(/[^a-z0-9]/gi,"_");
-      pushNotification(supKey, "📥 " + p.studentName + " submitted Chapter " + num + " for review.");
+      const submitMsg = version > 1
+        ? "🔄 " + p.studentName + " resubmitted Chapter " + num + " (v" + version + ") — ready for re-review."
+        : "📥 " + p.studentName + " submitted Chapter " + num + " for review.";
+      pushNotification(supKey, submitMsg);
 
       // Notify student themselves
       const stuKey = (p.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
-      pushNotification(stuKey, "✅ Chapter " + num + " submitted to your supervisor successfully.");
+      const stuMsg = version > 1
+        ? "🔄 Chapter " + num + " revision (v" + version + ") submitted to your supervisor."
+        : "✅ Chapter " + num + " submitted to your supervisor successfully.";
+      pushNotification(stuKey, stuMsg);
     }
   };
 
