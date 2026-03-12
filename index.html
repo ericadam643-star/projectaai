@@ -132,6 +132,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2495,99 +2496,82 @@ function SupervisorDashboard({ supervisor, onBack }) {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       if (!supervisor.codeKey) { setLoading(false); setRefreshing(false); return; }
-      // Always fetch fresh from Firestore so supervisor sees newly connected students
+
+      // ── 1. Get profile — localStorage first (instant), then Firestore ────────
       let profile = null;
-      if (window._db) {
-        try {
-          const doc = await withTimeout(window._db.collection("pjt").doc(supervisor.codeKey).get(), 7000);
-          if (doc.exists) {
-            profile = JSON.parse(doc.data().v);
-            SUP_CACHE[supervisor.codeKey] = profile;
-            try { localStorage.setItem("pjt_" + supervisor.codeKey, doc.data().v); } catch(e) {}
-          }
-        } catch(e) { console.warn("Firestore fetch failed, using cache:", e.message); }
-      }
-      // Fallback to cache / localStorage if Firestore unavailable
-      if (!profile) {
-        profile = SUP_CACHE[supervisor.codeKey] || null;
-        if (!profile) {
-          try { const v = localStorage.getItem("pjt_" + supervisor.codeKey); if (v) profile = JSON.parse(v); } catch(e) {}
-        }
-        if (!profile && window.storage) {
-          const r2 = await safeGet(supervisor.codeKey); if (r2 && r2.value) profile = JSON.parse(r2.value);
-        }
-      }
+
+      // Always try localStorage first — instant, no network
+      try {
+        const cached = localStorage.getItem("pjt_" + supervisor.codeKey);
+        if (cached) profile = JSON.parse(cached);
+      } catch(e) {}
+
+      // Also check in-memory cache
+      if (!profile) profile = SUP_CACHE[supervisor.codeKey] || null;
+
+      // Set students immediately from cache so UI shows instantly
       if (profile) {
         SUP_CACHE[supervisor.codeKey] = profile;
-        const list = profile.students || [];
-        // Enrich each student — use profile cache first, only hit storage if missing
-        const enriched = await Promise.all(list.map(async (s) => {
-          const submittedChapters = {};
-          const feedbackStatus = {};
-          const sKey = s.studentName.trim().toLowerCase().replace(/\s+/g,"_");
-
-          // ── Step 1: Load all submissions from profile cache (fast, no storage) ──
-          if (profile.submissions && profile.submissions[s.studentName]) {
-            Object.keys(profile.submissions[s.studentName]).forEach(n => {
-              submittedChapters[parseInt(n)] = profile.submissions[s.studentName][n];
-            });
-          }
-
-          // ── Step 2: Load all feedback statuses from profile.reviewStatus (fast) ──
-          if (profile.reviewStatus && profile.reviewStatus[s.studentName]) {
-            Object.keys(profile.reviewStatus[s.studentName]).forEach(n => {
-              feedbackStatus[parseInt(n)] = profile.reviewStatus[s.studentName][n];
-            });
-          }
-
-          // ── Step 3: For any submitted chapters not in cache, do ONE storage read ──
-          const missingChapters = [1,2,3,4,5].filter(n => !submittedChapters[n]);
-          await Promise.all(missingChapters.map(async (n) => {
-            try {
-              const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + n;
-              const sub = await safeGet(subKey);
-              if (sub && sub.value) submittedChapters[n] = JSON.parse(sub.value);
-            } catch(e) {}
-          }));
-
-          // ── Step 4: For submitted chapters with no feedback status, check fb key ──
-          const needsFbCheck = Object.keys(submittedChapters).filter(n => !feedbackStatus[parseInt(n)]);
-          await Promise.all(needsFbCheck.map(async (n) => {
-            try {
-              const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + n;
-              const fb = await safeGet(fbKey);
-              if (fb && fb.value) {
-                const parsed = JSON.parse(fb.value);
-                // If resubmittedAt is set on the feedback, treat as pending
-                const st = parsed.resubmittedAt ? "pending" : (parsed.status || "pending");
-                feedbackStatus[parseInt(n)] = st;
-                if (!profile.reviewStatus) profile.reviewStatus = {};
-                if (!profile.reviewStatus[s.studentName]) profile.reviewStatus[s.studentName] = {};
-                profile.reviewStatus[s.studentName][parseInt(n)] = st;
-              }
-            } catch(e) {}
-          }));
-
-          return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
-        }));
-        setStudents(enriched);
-        // Pre-populate reviewedKeys — chapters with saved feedback are "reviewed"
-        // EXCEPT: if student has resubmitted since last feedback, treat as pending again
-        const keys = new Set();
-        enriched.forEach(s => {
-          Object.entries(s.feedbackStatus || {}).forEach(([chNum, st]) => {
-            // Only mark reviewed if status is not pending (pending means resubmitted)
-            if (st && st !== "pending") keys.add(s.name + "_" + parseInt(chNum));
-          });
-        });
-        setReviewedKeys(keys);
-      } else {
-        setStudents([]);
-        setReviewedKeys(new Set());
+        setStudents(buildStudentList(profile));
+        setReviewedKeys(buildReviewedKeys(profile));
+        if (!isRefresh) { setLoading(false); }
       }
-    } catch(e) { console.error("loadStudents:", e); setStudents([]); }
+
+      // Then fetch fresh from Firestore in background (updates if newer)
+      try {
+        let freshProfile = null;
+        if (window._db) {
+          const doc = await withTimeout(window._db.collection("pjt").doc(supervisor.codeKey).get(), 8000);
+          if (doc.exists) freshProfile = JSON.parse(doc.data().v);
+        } else if (window.storage) {
+          const r = await withTimeout(window.storage.get(supervisor.codeKey), 6000);
+          if (r && r.value) freshProfile = JSON.parse(r.value);
+        }
+        if (freshProfile) {
+          SUP_CACHE[supervisor.codeKey] = freshProfile;
+          try { localStorage.setItem("pjt_" + supervisor.codeKey, JSON.stringify(freshProfile)); } catch(e) {}
+          setStudents(buildStudentList(freshProfile));
+          setReviewedKeys(buildReviewedKeys(freshProfile));
+        }
+      } catch(e) { console.warn("Background refresh failed:", e.message); }
+
+    } catch(e) { console.error("loadStudents:", e); if (students.length === 0) setStudents([]); }
     setLoading(false);
     setRefreshing(false);
+  };
+
+  // Pure sync helpers — no storage calls, just read the profile object
+  const buildStudentList = (profile) => {
+    const list = profile.students || [];
+    return list.map(s => {
+      const submittedChapters = {};
+      const feedbackStatus = {};
+      // Submissions — straight from profile
+      if (profile.submissions && profile.submissions[s.studentName]) {
+        Object.keys(profile.submissions[s.studentName]).forEach(n => {
+          submittedChapters[parseInt(n)] = profile.submissions[s.studentName][n];
+        });
+      }
+      // Feedback status — straight from profile.reviewStatus
+      if (profile.reviewStatus && profile.reviewStatus[s.studentName]) {
+        Object.keys(profile.reviewStatus[s.studentName]).forEach(n => {
+          feedbackStatus[parseInt(n)] = profile.reviewStatus[s.studentName][n];
+        });
+      }
+      return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
+    });
+  };
+
+  const buildReviewedKeys = (profile) => {
+    const keys = new Set();
+    const list = profile.students || [];
+    list.forEach(s => {
+      const fb = (profile.reviewStatus && profile.reviewStatus[s.studentName]) || {};
+      Object.entries(fb).forEach(([chNum, st]) => {
+        if (st && st !== "pending") keys.add(s.studentName + "_" + parseInt(chNum));
+      });
+    });
+    return keys;
   };
 
   useEffect(() => { loadStudents(false); }, [supervisor.codeKey]);
