@@ -94,6 +94,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -669,6 +670,15 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
   const [showFeedback, setShowFeedback]       = useState(false);
   const [feedback, setFeedback]               = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [showTableModal,  setShowTableModal]  = useState(false);
+  const [tableRows,       setTableRows]       = useState(3);
+  const [tableCols,       setTableCols]       = useState(3);
+  const [showFormulaModal,setShowFormulaModal]= useState(false);
+  const [formulaInput,    setFormulaInput]    = useState("");
+  const [showChartModal,  setShowChartModal]  = useState(false);
+  const [chartType,       setChartType]       = useState("bar");
+  const [chartData,       setChartData]       = useState("Category A, 40\nCategory B, 65\nCategory C, 30\nCategory D, 50");
+  const [chartTitle,      setChartTitle]      = useState("");
   const aiRef        = useRef(null);
   const editorRef     = useRef(null);
   const [wordCount,   setWordCount]   = useState(0);
@@ -681,6 +691,75 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       setDraft(editorRef.current.innerHTML);
     }
     editorRef.current && editorRef.current.focus();
+  };
+
+  const insertTable = (rows, cols) => {
+    let html = "<table style=\"border-collapse:collapse;width:100%;margin:12px 0\">";
+    for (let r = 0; r < rows; r++) {
+      html += "<tr>";
+      for (let c = 0; c < cols; c++) {
+        const tag = r === 0 ? "th" : "td";
+        html += "<" + tag + " style=\"border:1px solid #ccc;padding:8px 10px;text-align:left" + (r===0?";background:#f3f4f6;font-weight:700":"") + "\">" + (r===0 ? "Header "+(c+1) : "") + "</" + tag + ">";
+      }
+      html += "</tr>";
+    }
+    html += "</table><p><br></p>";
+    editorRef.current && editorRef.current.focus();
+    document.execCommand("insertHTML", false, html);
+  };
+
+  const insertFormula = (formula) => {
+    if (!formula.trim()) return;
+    const html = "<span style=\"display:inline-block;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:4px;padding:3px 10px;font-family:Georgia,serif;font-style:italic;font-size:15px;margin:2px 4px\">" + formula + "</span>";
+    editorRef.current && editorRef.current.focus();
+    document.execCommand("insertHTML", false, html);
+  };
+
+  const insertChart = (type, dataStr, title) => {
+    const lines = dataStr.split("\n").filter(function(l){ return l.trim(); });
+    const labels = lines.map(function(l){ return l.split(",")[0].trim(); });
+    const values = lines.map(function(l){ return parseFloat(l.split(",")[1]) || 0; });
+    const max = Math.max.apply(null, values) || 1;
+    const colors = ["#00C9A7","#4CAF50","#FFC107","#FF7043","#42A5F5","#AB47BC","#26A69A","#FF8A65"];
+    let chartHtml = "<div style=\"margin:16px 0;padding:16px;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:10px;font-family:sans-serif\">";
+    if (title) chartHtml += "<div style=\"font-weight:700;font-size:13px;margin-bottom:12px;text-align:center;color:#111\">" + title + "</div>";
+    if (type === "bar") {
+      chartHtml += "<div style=\"display:flex;align-items:flex-end;gap:8px;height:140px;padding:0 8px\">";
+      labels.forEach(function(lbl, i) {
+        const pct = (values[i] / max * 100);
+        chartHtml += "<div style=\"flex:1;display:flex;flex-direction:column;align-items:center;gap:4px\">"
+          + "<div style=\"font-size:10px;font-weight:600;color:#111\">" + values[i] + "</div>"
+          + "<div style=\"width:100%;background:" + colors[i%colors.length] + ";height:" + pct + "%;min-height:4px;border-radius:4px 4px 0 0\"></div>"
+          + "<div style=\"font-size:10px;color:#555;text-align:center;word-break:break-word\">" + lbl + "</div></div>";
+      });
+      chartHtml += "</div>";
+    } else if (type === "pie") {
+      const total = values.reduce(function(a,b){return a+b;},0) || 1;
+      let cum = 0;
+      const segs = values.map(function(v,i){ const pct=v/total*100; const s=cum; cum+=pct; return {pct,start:s,color:colors[i%colors.length],label:labels[i]}; });
+      chartHtml += "<div style=\"display:flex;gap:16px;align-items:center\">"
+        + "<svg width=\"120\" height=\"120\" viewBox=\"-1 -1 2 2\" style=\"transform:rotate(-90deg);flex-shrink:0\">";
+      segs.forEach(function(seg) {
+        const sa=seg.start/100*2*Math.PI; const ea=(seg.start+seg.pct)/100*2*Math.PI;
+        const x1=Math.cos(sa); const y1=Math.sin(sa); const x2=Math.cos(ea); const y2=Math.sin(ea);
+        const large=seg.pct>50?1:0;
+        chartHtml+="<path d=\"M0,0 L"+x1+","+y1+" A1,1,0,"+large+",1,"+x2+","+y2+" Z\" fill=\""+seg.color+"\" stroke=\"white\" stroke-width=\"0.02\"/>";
+      });
+      chartHtml += "</svg><div style=\"display:flex;flex-direction:column;gap:5px\">";
+      segs.forEach(function(seg){ chartHtml+="<div style=\"display:flex;align-items:center;gap:6px;font-size:11px\"><div style=\"width:10px;height:10px;border-radius:2px;background:"+seg.color+";flex-shrink:0\"></div><span>"+seg.label+" ("+seg.pct.toFixed(1)+"%)</span></div>"; });
+      chartHtml += "</div></div>";
+    } else {
+      const w=300; const h=120; const pad=30;
+      const xStep=(w-pad*2)/(values.length-1||1);
+      const pts=values.map(function(v,i){ return [(pad+i*xStep).toFixed(1),(h-pad-(v/max)*(h-pad*2)).toFixed(1)]; });
+      const poly=pts.map(function(p){ return p[0]+","+p[1]; }).join(" ");
+      chartHtml+="<svg width=\""+w+"\" height=\""+h+"\" style=\"overflow:visible\"><polyline points=\""+poly+"\" fill=\"none\" stroke=\"#00C9A7\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>";
+      pts.forEach(function(p,i){ chartHtml+="<circle cx=\""+p[0]+"\" cy=\""+p[1]+"\" r=\"4\" fill=\"#00C9A7\"/><text x=\""+p[0]+"\" y=\""+( parseFloat(p[1])-8)+"\" text-anchor=\"middle\" font-size=\"9\" fill=\"#555\">"+values[i]+"</text><text x=\""+p[0]+"\" y=\""+( h-8)+"\" text-anchor=\"middle\" font-size=\"9\" fill=\"#555\">"+labels[i]+"</text>"; });
+      chartHtml+="</svg>";
+    }
+    chartHtml += "</div><p><br></p>";
+    editorRef.current && editorRef.current.focus();
+    document.execCommand("insertHTML", false, chartHtml);
   };
 
   const handleEditorInput = () => {
@@ -953,10 +1032,168 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                   {b.icon}
                 </button>
               ))}
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Font size */}
+              <select onChange={e => { execCmd("fontSize", e.target.value); e.target.value=""; }}
+                defaultValue=""
+                style={{ height:28, border:"1px solid #d0d5dd", borderRadius:5, fontSize:11, color:"#374151", background:"white", cursor:"pointer", padding:"0 4px" }}>
+                <option value="" disabled>Size</option>
+                <option value="1">8pt</option>
+                <option value="2">10pt</option>
+                <option value="3">12pt</option>
+                <option value="4">14pt</option>
+                <option value="5">18pt</option>
+                <option value="6">24pt</option>
+                <option value="7">36pt</option>
+              </select>
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Text colour */}
+              <label title="Text colour" style={{ display:"flex", alignItems:"center", justifyContent:"center", width:28, height:28, cursor:"pointer", position:"relative", borderRadius:5 }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                <span style={{ fontSize:13, fontWeight:700, color:"#374151" }}>A</span>
+                <input type="color" defaultValue="#000000" onChange={e => execCmd("foreColor", e.target.value)}
+                  style={{ position:"absolute", opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
+              </label>
+              {/* Highlight colour */}
+              <label title="Highlight" style={{ display:"flex", alignItems:"center", justifyContent:"center", width:28, height:28, cursor:"pointer", position:"relative", borderRadius:5 }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                <span style={{ fontSize:13, background:"#FFC107", padding:"1px 3px", borderRadius:2, color:"#111" }}>H</span>
+                <input type="color" defaultValue="#FFF176" onChange={e => execCmd("hiliteColor", e.target.value)}
+                  style={{ position:"absolute", opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
+              </label>
+              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              {/* Table */}
+              <button title="Insert table" onClick={() => setShowTableModal(true)}
+                style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                ⊞
+              </button>
+              {/* Formula */}
+              <button title="Insert formula/equation" onClick={() => setShowFormulaModal(true)}
+                style={{ background:"transparent", border:"none", borderRadius:5, padding:"0 6px", height:28, color:"#374151", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", fontFamily:"Georgia,serif", fontStyle:"italic" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                ƒ(x)
+              </button>
+              {/* Chart */}
+              <button title="Insert chart" onClick={() => setShowChartModal(true)}
+                style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                📊
+              </button>
               <div style={{ marginLeft:"auto", fontSize:10, color:"#6b7280", alignSelf:"center", paddingRight:4, whiteSpace:"nowrap" }}>
                 {wordCount} words
               </div>
             </div>
+
+            {/* Table modal */}
+            {showTableModal && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}
+                onClick={() => setShowTableModal(false)}>
+                <div style={{ background:"white", borderRadius:14, padding:24, width:280, boxShadow:"0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, color:"#111", marginBottom:16 }}>Insert Table</div>
+                  <div style={{ display:"flex", gap:16, marginBottom:16 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:11, color:"#555", marginBottom:5 }}>Rows</div>
+                      <input type="number" value={tableRows} min={1} max={20} onChange={e => setTableRows(parseInt(e.target.value)||1)}
+                        style={{ width:"100%", padding:"7px 10px", border:"1px solid #d0d5dd", borderRadius:7, fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:11, color:"#555", marginBottom:5 }}>Columns</div>
+                      <input type="number" value={tableCols} min={1} max={10} onChange={e => setTableCols(parseInt(e.target.value)||1)}
+                        style={{ width:"100%", padding:"7px 10px", border:"1px solid #d0d5dd", borderRadius:7, fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:10 }}>
+                    <button onClick={() => { insertTable(tableRows, tableCols); setShowTableModal(false); }}
+                      style={{ flex:1, background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"9px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                      Insert
+                    </button>
+                    <button onClick={() => setShowTableModal(false)}
+                      style={{ flex:1, background:"transparent", color:"#555", border:"1px solid #d0d5dd", borderRadius:8, padding:"9px", fontSize:13, cursor:"pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Formula modal */}
+            {showFormulaModal && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}
+                onClick={() => setShowFormulaModal(false)}>
+                <div style={{ background:"white", borderRadius:14, padding:24, width:340, boxShadow:"0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, color:"#111", marginBottom:6 }}>Insert Formula / Equation</div>
+                  <div style={{ fontSize:11, color:"#777", marginBottom:14 }}>Type your formula using standard notation e.g. GDP = C + I + G + (X − M)</div>
+                  <input value={formulaInput} onChange={e => setFormulaInput(e.target.value)}
+                    placeholder="e.g. Y = β₀ + β₁X₁ + ε"
+                    style={{ width:"100%", padding:"10px 12px", border:"1px solid #d0d5dd", borderRadius:8, fontSize:14, fontFamily:"Georgia,serif", fontStyle:"italic", outline:"none", boxSizing:"border-box", marginBottom:14 }} />
+                  {formulaInput && (
+                    <div style={{ background:"#f8f9fa", border:"1px solid #e0e0e0", borderRadius:7, padding:"10px 14px", marginBottom:14, fontFamily:"Georgia,serif", fontSize:15, fontStyle:"italic", color:"#111" }}>
+                      Preview: {formulaInput}
+                    </div>
+                  )}
+                  <div style={{ display:"flex", gap:10 }}>
+                    <button onClick={() => { insertFormula(formulaInput); setFormulaInput(""); setShowFormulaModal(false); }}
+                      style={{ flex:1, background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"9px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                      Insert
+                    </button>
+                    <button onClick={() => setShowFormulaModal(false)}
+                      style={{ flex:1, background:"transparent", color:"#555", border:"1px solid #d0d5dd", borderRadius:8, padding:"9px", fontSize:13, cursor:"pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Chart modal */}
+            {showChartModal && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+                onClick={() => setShowChartModal(false)}>
+                <div style={{ background:"white", borderRadius:14, padding:24, width:380, maxHeight:"80vh", overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, color:"#111", marginBottom:6 }}>Insert Chart</div>
+                  <div style={{ fontSize:11, color:"#777", marginBottom:14 }}>Enter each data point on a new line as: Label, Value</div>
+                  <div style={{ marginBottom:10 }}>
+                    <div style={{ fontSize:11, color:"#555", marginBottom:5 }}>Chart title (optional)</div>
+                    <input value={chartTitle} onChange={e => setChartTitle(e.target.value)} placeholder="e.g. GDP Growth by Year"
+                      style={{ width:"100%", padding:"7px 10px", border:"1px solid #d0d5dd", borderRadius:7, fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <div style={{ fontSize:11, color:"#555", marginBottom:5 }}>Chart type</div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      {["bar","pie","line"].map(function(t) {
+                        return (
+                          <button key={t} onClick={() => setChartType(t)}
+                            style={{ flex:1, padding:"7px", border:"1px solid " + (chartType===t ? "#00C9A7" : "#d0d5dd"), borderRadius:7, background: chartType===t ? "rgba(0,201,167,0.1)" : "white", color: chartType===t ? "#00C9A7" : "#555", fontWeight:600, fontSize:12, cursor:"pointer" }}>
+                            {t.charAt(0).toUpperCase()+t.slice(1)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, color:"#555", marginBottom:5 }}>Data</div>
+                    <textarea value={chartData} onChange={e => setChartData(e.target.value)} rows={6}
+                      style={{ width:"100%", padding:"8px 10px", border:"1px solid #d0d5dd", borderRadius:7, fontSize:12, fontFamily:"monospace", outline:"none", resize:"vertical", boxSizing:"border-box" }} />
+                  </div>
+                  <div style={{ display:"flex", gap:10 }}>
+                    <button onClick={() => { insertChart(chartType, chartData, chartTitle); setShowChartModal(false); }}
+                      style={{ flex:1, background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"9px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                      Insert Chart
+                    </button>
+                    <button onClick={() => setShowChartModal(false)}
+                      style={{ flex:1, background:"transparent", color:"#555", border:"1px solid #d0d5dd", borderRadius:8, padding:"9px", fontSize:13, cursor:"pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Content-editable editor ── */}
             <div
