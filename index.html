@@ -135,6 +135,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -3332,7 +3333,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
                       <span style={{ fontSize:10, color:"var(--grey3)" }}>● Pending</span>
                       <span style={{ fontSize:10, color:"#4CAF50" }}>✓ Approved</span>
                       <span style={{ fontSize:10, color:"#FFC107" }}>~ Minor revision</span>
-                      {(s.feedbackStatus[parseInt(chNum)] === "pending") && (
+                      {Object.values(s.feedbackStatus || {}).some(st => st === "pending") && (
                         <span style={{ fontSize:10, color:"var(--teal)", fontWeight:700 }}>🔄 Resubmitted</span>
                       )}
                       <span style={{ fontSize:10, color:"#FF7043" }}>! Major revision</span>
