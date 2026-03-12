@@ -91,6 +91,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2626,42 +2627,7 @@ function App() {
   // ── Load everything from storage on first mount ──────────────────────────
   useEffect(() => {
     const load = async () => {
-      try {
-        // Restore session from localStorage
-        const roleRes = await safeGet(ROLE_KEY);
-        if (roleRes && roleRes.value) {
-          const saved = JSON.parse(roleRes.value);
-          if (saved.role === "supervisor" && saved.supervisor) {
-            setSupervisor(saved.supervisor);
-            setRole("supervisor");
-            if (saved.supervisor.codeKey && !SUP_CACHE[saved.supervisor.codeKey]) {
-              const r = await safeGet(saved.supervisor.codeKey);
-              if (r && r.value) SUP_CACHE[saved.supervisor.codeKey] = JSON.parse(r.value);
-              else SUP_CACHE[saved.supervisor.codeKey] = { name:saved.supervisor.name, dept:saved.supervisor.dept, uni:saved.supervisor.uni, code:saved.supervisor.code, students:[] };
-            }
-            if (saved.supervisor.email) ACCOUNTS_CACHE[saved.supervisor.email] = Object.assign({ role:"supervisor" }, saved.supervisor);
-            setScreen("supervisor_dashboard");
-            return;
-          }
-          if (saved.role === "student" && saved.email) {
-            setRole("student");
-            setStudentEmail(saved.email);
-            if (saved.account) ACCOUNTS_CACHE[saved.email] = saved.account;
-            const res = await safeGet(STORAGE_KEY + "_" + saved.email);
-            if (res && res.value) {
-              const st = JSON.parse(res.value);
-              const p = st.project || null;
-              setSavedProject(p);
-              setAllDrafts(st.drafts || {});
-              setProject(p);
-              setScreen(p ? "dashboard" : "setup");
-            } else {
-              setScreen("setup");
-            }
-            return;
-          }
-        }
-      } catch(e) { console.warn("Session restore failed:", e); }
+      // Always start from the login/sign up page — no auto session restore
       setScreen("auth");
     };
     load();
