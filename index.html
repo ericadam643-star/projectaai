@@ -125,6 +125,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -3407,7 +3408,7 @@ function App() {
     setScreen("dashboard");
   };
 
-  const handleComplete = (num, draftsForChapter) => {
+  const handleComplete = async (num, draftsForChapter) => {
     const p = project;
     setProject(prev => {
       const updated = { ...prev, completed: Math.max(prev.completed||0, num), submitted: { ...(prev.submitted||{}), [num]: true } };
