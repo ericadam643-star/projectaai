@@ -93,6 +93,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -1222,7 +1223,7 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
                 {(hl[i] || []).filter(function(h) { return h.comment && h.comment.trim(); }).map(function(h) {
                   return (
                     <div key={h.id} style={{ padding:"10px 14px", background:"rgba(255,193,7,0.03)", borderTop:"1px solid rgba(255,193,7,0.1)" }}>
-                      <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,193,7,0.8)", marginBottom:4 }}>📌 On: "{h.text.slice(0,70)}{h.text.length > 70 ? "..." : "}"</div>
+                      <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,193,7,0.8)", marginBottom:4 }}>📌 On: {h.text.slice(0,70)}{h.text.length > 70 ? "..." : ""}</div>
                       <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.7 }}>{h.comment}</div>
                     </div>
                   );
@@ -2322,7 +2323,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
                 {/* Highlight popup */}
                 {activeHighlight && activeHighlight.sectionIdx === i && (
                   <div style={{ margin:"0 16px 12px", background:"rgba(255,193,7,0.08)", border:"1px solid rgba(255,193,7,0.35)", borderRadius:10, padding:"12px 14px" }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", marginBottom:6 }}>📌 COMMENTING ON: "{activeHighlight.selectedText.slice(0,60)}{activeHighlight.selectedText.length > 60 ? "..." : "}"</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", marginBottom:6 }}>📌 COMMENTING ON: {activeHighlight.selectedText.slice(0,60)}{activeHighlight.selectedText.length > 60 ? "..." : ""}</div>
                     <textarea
                       value={hlComment}
                       onChange={e => setHlComment(e.target.value)}
@@ -2351,7 +2352,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
                     {(highlights[i] || []).map(function(hl) {
                       return (
                         <div key={hl.id} style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:8, padding:"10px 12px" }}>
-                          <div style={{ fontSize:11, color:"rgba(255,193,7,0.8)", fontStyle:"italic", marginBottom:5 }}>"...{hl.text.slice(0,80)}{hl.text.length > 80 ? "..." : "}"</div>
+                          <div style={{ fontSize:11, color:"rgba(255,193,7,0.8)", fontStyle:"italic", marginBottom:5 }}>{hl.text.slice(0,80)}{hl.text.length > 80 ? "..." : ""}</div>
                           <input
                             value={hl.comment}
                             onChange={e => updateHighlightComment(i, hl.id, e.target.value)}
