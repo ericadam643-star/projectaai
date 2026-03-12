@@ -134,6 +134,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2471,7 +2472,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
 function SupervisorDashboard({ supervisor, onBack }) {
   const [students,     setStudents]     = useState([]);
   const [reviewedKeys, setReviewedKeys] = useState(new Set()); // "studentName_chNum"
-  const [loading,      setLoading]      = useState(true);
+  const [loading,      setLoading]      = useState(false);
   const [refreshing,   setRefreshing]   = useState(false);
   const [activeStudent, setActiveStudent] = useState(null);
   const [activeChapter, setActiveChapter] = useState(null);
@@ -2526,32 +2527,25 @@ function SupervisorDashboard({ supervisor, onBack }) {
     return keys;
   };
 
-  const loadStudents = async (isRefresh) => {
-    if (isRefresh) setRefreshing(true); else setLoading(true);
+  const loadStudents = (isRefresh) => {
+    if (isRefresh) setRefreshing(true);
+
+    // ── Step 1: Read from localStorage immediately (sync, instant) ────────────
+    let profile = null;
     try {
-      if (!supervisor.codeKey) { setLoading(false); setRefreshing(false); return; }
+      const cached = localStorage.getItem("pjt_" + supervisor.codeKey);
+      if (cached) profile = JSON.parse(cached);
+    } catch(e) {}
+    if (!profile) profile = SUP_CACHE[supervisor.codeKey] || null;
 
-      // ── 1. Get profile — localStorage first (instant), then Firestore ────────
-      let profile = null;
+    if (profile) {
+      SUP_CACHE[supervisor.codeKey] = profile;
+      setStudents(buildStudentList(profile));
+      setReviewedKeys(buildReviewedKeys(profile));
+    }
 
-      // Always try localStorage first — instant, no network
-      try {
-        const cached = localStorage.getItem("pjt_" + supervisor.codeKey);
-        if (cached) profile = JSON.parse(cached);
-      } catch(e) {}
-
-      // Also check in-memory cache
-      if (!profile) profile = SUP_CACHE[supervisor.codeKey] || null;
-
-      // Set students immediately from cache so UI shows instantly
-      if (profile) {
-        SUP_CACHE[supervisor.codeKey] = profile;
-        setStudents(buildStudentList(profile));
-        setReviewedKeys(buildReviewedKeys(profile));
-        if (!isRefresh) { setLoading(false); }
-      }
-
-      // Then fetch fresh from Firestore in background (updates if newer)
+    // ── Step 2: Fetch fresh from Firestore in background (non-blocking) ───────
+    const fetchFresh = async () => {
       try {
         let freshProfile = null;
         if (window._db) {
@@ -2568,10 +2562,9 @@ function SupervisorDashboard({ supervisor, onBack }) {
           setReviewedKeys(buildReviewedKeys(freshProfile));
         }
       } catch(e) { console.warn("Background refresh failed:", e.message); }
-
-    } catch(e) { console.error("loadStudents:", e); if (students.length === 0) setStudents([]); }
-    setLoading(false);
-    setRefreshing(false);
+      setRefreshing(false);
+    };
+    fetchFresh();
   };
 
   // Pure sync helpers — no storage calls, just read the profile object
