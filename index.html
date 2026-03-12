@@ -123,6 +123,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -1909,6 +1910,106 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
 
 
 // ── Student Dashboard ────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICATION BELL
+// ═══════════════════════════════════════════════════════════════
+function NotificationBell({ userKey }) {
+  const [open,    setOpen]    = useState(false);
+  const [notes,   setNotes]   = useState([]);
+  const unread = notes.filter(function(n){ return !n.read; }).length;
+
+  useEffect(function() {
+    if (!userKey) return;
+    try {
+      const stored = localStorage.getItem("pjt_notifs_" + userKey);
+      if (stored) setNotes(JSON.parse(stored));
+    } catch(e) {}
+  }, [userKey]);
+
+  const markAllRead = function() {
+    const updated = notes.map(function(n){ return { ...n, read: true }; });
+    setNotes(updated);
+    try { localStorage.setItem("pjt_notifs_" + userKey, JSON.stringify(updated)); } catch(e) {}
+  };
+
+  const clearAll = function() {
+    setNotes([]);
+    try { localStorage.setItem("pjt_notifs_" + userKey, JSON.stringify([])); } catch(e) {}
+  };
+
+  if (!open) {
+    return (
+      <div style={{ position:"relative", display:"inline-block" }}>
+        <button onClick={() => { setOpen(true); markAllRead(); }}
+          style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, width:36, height:34, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", position:"relative" }}>
+          <span style={{ fontSize:16 }}>🔔</span>
+          {unread > 0 && (
+            <span style={{ position:"absolute", top:-4, right:-4, background:"#FF7043", color:"white", borderRadius:"50%", width:16, height:16, fontSize:9, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position:"relative", display:"inline-block" }}>
+      <button onClick={() => setOpen(false)}
+        style={{ background:"rgba(0,201,167,0.1)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:8, width:36, height:34, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+        <span style={{ fontSize:16 }}>🔔</span>
+      </button>
+
+      {/* Dropdown */}
+      <div style={{ position:"absolute", top:42, right:0, width:300, background:"#1A2E3F", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, boxShadow:"0 16px 40px rgba(0,0,0,0.5)", zIndex:500, overflow:"hidden" }}>
+        <div style={{ padding:"12px 14px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <span style={{ fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, color:"var(--white)" }}>Notifications</span>
+          <div style={{ display:"flex", gap:8 }}>
+            {notes.length > 0 && (
+              <button onClick={clearAll} style={{ background:"transparent", border:"none", color:"rgba(255,112,67,0.7)", fontSize:11, cursor:"pointer" }}>Clear all</button>
+            )}
+            <button onClick={() => setOpen(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", fontSize:14, cursor:"pointer" }}>✕</button>
+          </div>
+        </div>
+
+        <div style={{ maxHeight:320, overflowY:"auto" }}>
+          {notes.length === 0 ? (
+            <div style={{ padding:"24px 14px", textAlign:"center", color:"var(--grey3)", fontSize:12, fontStyle:"italic" }}>
+              No notifications yet
+            </div>
+          ) : (
+            notes.slice().reverse().map(function(n, i) {
+              return (
+                <div key={i} style={{ padding:"11px 14px", borderBottom:"1px solid rgba(255,255,255,0.05)", background: n.read ? "transparent" : "rgba(0,201,167,0.04)" }}>
+                  <div style={{ fontSize:12, color:"var(--white)", lineHeight:1.5, marginBottom:3 }}>{n.message}</div>
+                  <div style={{ fontSize:10, color:"var(--grey3)" }}>{n.time}</div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Backdrop */}
+      <div style={{ position:"fixed", inset:0, zIndex:499 }} onClick={() => setOpen(false)} />
+    </div>
+  );
+}
+
+// Helper to push a notification into localStorage
+function pushNotification(userKey, message) {
+  if (!userKey) return;
+  try {
+    const stored = localStorage.getItem("pjt_notifs_" + userKey);
+    const existing = stored ? JSON.parse(stored) : [];
+    const now = new Date();
+    const time = now.toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" }) + " · " + now.toLocaleDateString("en-GB", { day:"numeric", month:"short" });
+    const updated = [...existing, { message, time, read: false }].slice(-30); // keep last 30
+    localStorage.setItem("pjt_notifs_" + userKey, JSON.stringify(updated));
+  } catch(e) {}
+}
+
 function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToChapters, onViewSubmission, onSignOut }) {
   const [feedback,        setFeedback]        = useState({});
   const [readFeedback,    setReadFeedback]     = useState({});  // { [chNum]: true } — chapters whose feedback has been viewed
@@ -1979,11 +2080,12 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
       {/* Nav */}
       <div className="rp-nav">
         <ProjectaIcon size={30} />
-        <div style={{ display:"flex", gap:8 }}>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           <button onClick={onGoToChapters}
             style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
             Chapters
           </button>
+          <NotificationBell userKey={project && project.studentName ? project.studentName.trim().toLowerCase().replace(/\s+/g,"_") : "student"} />
           <button onClick={onSignOut}
             style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
             Sign out
@@ -2362,6 +2464,15 @@ function SupervisorDashboard({ supervisor, onBack }) {
       prof.reviewStatus[activeStudent.name][chNum] = status || "reviewed";
       SUP_CACHE[supervisor.codeKey] = prof;
       safeSet(supervisor.codeKey, JSON.stringify(prof)); // fire-and-forget
+
+      // Notify student
+      const stuKey = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
+      const statusMsg = status === "approved" ? "✅ Approved" : status === "minor" ? "⚠️ Minor revision needed" : status === "major" ? "🔴 Major revision needed" : "💬 Feedback received";
+      pushNotification(stuKey, statusMsg + " — Chapter " + chNum + " feedback from your supervisor is ready.");
+
+      // Notify supervisor themselves
+      const supKey = supervisor.codeKey.replace(/[^a-z0-9]/gi,"_");
+      pushNotification(supKey, "✓ Feedback saved for " + activeStudent.name + " — Chapter " + chNum + ".");
     } catch(e) { console.error("saveFeedback storage error:", e); }
   };
 
@@ -2727,6 +2838,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
               style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color: refreshing ? "var(--grey3)" : "var(--grey2)", fontSize:12, cursor:"pointer" }}>
               {refreshing ? "Refreshing..." : "↻ Refresh"}
             </button>
+            <NotificationBell userKey={(supervisor && supervisor.code) ? supervisor.code : "supervisor"} />
             <button onClick={onBack}
               style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
               Sign out
@@ -3172,6 +3284,14 @@ function App() {
       safeSet(subKey, JSON.stringify(subPayload));
       // Re-persist the whole profile with submissions
       if (prof) safeSet(p.supervisorCodeKey, JSON.stringify(prof));
+
+      // Notify supervisor
+      const supKey = p.supervisorCodeKey.replace(/[^a-z0-9]/gi,"_");
+      pushNotification(supKey, "📥 " + p.studentName + " submitted Chapter " + num + " for review.");
+
+      // Notify student themselves
+      const stuKey = (p.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
+      pushNotification(stuKey, "✅ Chapter " + num + " submitted to your supervisor successfully.");
     }
   };
 
