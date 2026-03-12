@@ -131,6 +131,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2519,47 +2520,54 @@ function SupervisorDashboard({ supervisor, onBack }) {
       if (profile) {
         SUP_CACHE[supervisor.codeKey] = profile;
         const list = profile.students || [];
+        // Enrich each student — use profile cache first, only hit storage if missing
         const enriched = await Promise.all(list.map(async (s) => {
           const submittedChapters = {};
           const feedbackStatus = {};
           const sKey = s.studentName.trim().toLowerCase().replace(/\s+/g,"_");
-          for (let n = 1; n <= 5; n++) {
-            // Load submission
-            if (profile.submissions && profile.submissions[s.studentName] && profile.submissions[s.studentName][n]) {
-              submittedChapters[n] = profile.submissions[s.studentName][n];
-            } else {
+
+          // ── Step 1: Load all submissions from profile cache (fast, no storage) ──
+          if (profile.submissions && profile.submissions[s.studentName]) {
+            Object.keys(profile.submissions[s.studentName]).forEach(n => {
+              submittedChapters[parseInt(n)] = profile.submissions[s.studentName][n];
+            });
+          }
+
+          // ── Step 2: Load all feedback statuses from profile.reviewStatus (fast) ──
+          if (profile.reviewStatus && profile.reviewStatus[s.studentName]) {
+            Object.keys(profile.reviewStatus[s.studentName]).forEach(n => {
+              feedbackStatus[parseInt(n)] = profile.reviewStatus[s.studentName][n];
+            });
+          }
+
+          // ── Step 3: For any submitted chapters not in cache, do ONE storage read ──
+          const missingChapters = [1,2,3,4,5].filter(n => !submittedChapters[n]);
+          await Promise.all(missingChapters.map(async (n) => {
+            try {
               const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + n;
               const sub = await safeGet(subKey);
               if (sub && sub.value) submittedChapters[n] = JSON.parse(sub.value);
-            }
-            // Load feedback status — always check fbKey directly (most accurate)
-            if (submittedChapters[n]) {
+            } catch(e) {}
+          }));
+
+          // ── Step 4: For submitted chapters with no feedback status, check fb key ──
+          const needsFbCheck = Object.keys(submittedChapters).filter(n => !feedbackStatus[parseInt(n)]);
+          await Promise.all(needsFbCheck.map(async (n) => {
+            try {
               const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + n;
-              const resubFlagKey = supervisor.codeKey + "_resub_" + sKey + "_ch" + n;
-              // Check resubmit flag first — student may have resubmitted after last feedback
-              const resubFlag = await safeGet(resubFlagKey);
-              if (resubFlag && resubFlag.value) {
-                // Student resubmitted — always treat as pending regardless of old reviewStatus
-                feedbackStatus[n] = "pending";
-                // Update profile.reviewStatus to reflect this
+              const fb = await safeGet(fbKey);
+              if (fb && fb.value) {
+                const parsed = JSON.parse(fb.value);
+                // If resubmittedAt is set on the feedback, treat as pending
+                const st = parsed.resubmittedAt ? "pending" : (parsed.status || "pending");
+                feedbackStatus[parseInt(n)] = st;
                 if (!profile.reviewStatus) profile.reviewStatus = {};
                 if (!profile.reviewStatus[s.studentName]) profile.reviewStatus[s.studentName] = {};
-                profile.reviewStatus[s.studentName][n] = "pending";
-              } else if (profile.reviewStatus && profile.reviewStatus[s.studentName] && profile.reviewStatus[s.studentName][n]) {
-                feedbackStatus[n] = profile.reviewStatus[s.studentName][n];
-              } else {
-                // Fallback: read from separate feedback key
-                const fb = await safeGet(fbKey);
-                if (fb && fb.value) {
-                  const parsed = JSON.parse(fb.value);
-                  feedbackStatus[n] = parsed.status || "pending";
-                  if (!profile.reviewStatus) profile.reviewStatus = {};
-                  if (!profile.reviewStatus[s.studentName]) profile.reviewStatus[s.studentName] = {};
-                  profile.reviewStatus[s.studentName][n] = feedbackStatus[n];
-                }
+                profile.reviewStatus[s.studentName][parseInt(n)] = st;
               }
-            }
-          }
+            } catch(e) {}
+          }));
+
           return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
         }));
         setStudents(enriched);
