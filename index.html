@@ -126,6 +126,8 @@
 
 
 
+
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -823,9 +825,17 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
   const setDraft = v => setDrafts(p => ({ ...p, [activeSection]: v }));
   const { isMobile, isDesktop } = useBreakpoint();
 
-  // Completion check — each section needs at least 50 words
-  const MIN_WORDS = 50;
-  const sectionWordCounts = chapter.sections.map((_, i) => { const t = (drafts[i] || "").replace(/<[^>]*>/g," "); return t.split(/\s+/).filter(Boolean).length; });
+  // Completion check — each section needs at least 30 words
+  // For the active section, read live from DOM to avoid stale state
+  const MIN_WORDS = 30;
+  const sectionWordCounts = chapter.sections.map((_, i) => {
+    let raw = drafts[i] || "";
+    if (i === activeSection && editorRef.current) {
+      raw = editorRef.current.innerHTML || raw;
+    }
+    const t = raw.replace(/<[^>]*>/g," ");
+    return t.split(/\s+/).filter(Boolean).length;
+  });
   const incompleteSections = chapter.sections.filter((_, i) => sectionWordCounts[i] < MIN_WORDS);
   const allSectionsComplete = incompleteSections.length === 0;
   const [showBlocker, setShowBlocker] = useState(false);
@@ -889,9 +899,21 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
   };
 
   const handleSubmit = () => {
-    if (!allSectionsComplete) { setShowBlocker(true); return; }
-    onSaveDrafts(chapter.num, drafts);
-    onComplete(chapter.num, drafts);   // pass drafts directly — no stale closure
+    // Build fresh drafts with live editor content for active section
+    const freshDrafts = { ...drafts };
+    if (editorRef.current) {
+      freshDrafts[activeSection] = editorRef.current.innerHTML;
+    }
+    // Compute completion from freshDrafts
+    const freshCounts = chapter.sections.map((_, i) => {
+      const t = (freshDrafts[i] || "").replace(/<[^>]*>/g," ");
+      return t.split(/\s+/).filter(Boolean).length;
+    });
+    const freshIncomplete = chapter.sections.filter((_, i) => freshCounts[i] < MIN_WORDS);
+    if (freshIncomplete.length > 0) { setShowBlocker(true); return; }
+    setDrafts(freshDrafts);
+    onSaveDrafts(chapter.num, freshDrafts);
+    onComplete(chapter.num, freshDrafts);
     setSubmitted(true);
     setSubmitTime(new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }));
   };
@@ -1423,11 +1445,27 @@ function RevisionHistory({ project, chapterNum, currentDrafts }) {
     const load = async () => {
       if (!project || !project.supervisorCodeKey || !project.studentName) { setLoading(false); return; }
       try {
-        const sKey = project.studentName.trim().toLowerCase().replace(/\s+/g,"_");
-        const histKey = project.supervisorCodeKey + "_history_" + sKey + "_ch" + chapterNum;
+        // Check SUP_CACHE first (same-session, fastest)
+        const cachedProf = SUP_CACHE[project.supervisorCodeKey];
+        if (cachedProf && cachedProf.revHistory && cachedProf.revHistory[project.studentName] && cachedProf.revHistory[project.studentName][chapterNum]) {
+          setHistory(cachedProf.revHistory[project.studentName][chapterNum]);
+          setLoading(false);
+          return;
+        }
+        // Fall back to shared storage (cross-device)
+        const sKey = project.studentName.trim().toLowerCase().replace(/\s+/g,"_").slice(0,12);
+        const supCode = (project.supervisorCodeKey || "").replace("sup_code_","").replace(/[^a-z0-9]/gi,"");
+        const histKey = "hist_" + supCode + "_" + sKey + "_ch" + chapterNum;
         const res = await safeGet(histKey);
         if (res && res.value) {
-          setHistory(JSON.parse(res.value));
+          const hist = JSON.parse(res.value);
+          setHistory(hist);
+          // Cache it for future same-session use
+          if (cachedProf) {
+            if (!cachedProf.revHistory) cachedProf.revHistory = {};
+            if (!cachedProf.revHistory[project.studentName]) cachedProf.revHistory[project.studentName] = {};
+            cachedProf.revHistory[project.studentName][chapterNum] = hist;
+          }
         }
       } catch(e) {}
       setLoading(false);
@@ -3417,8 +3455,9 @@ function App() {
     });
     if (p && p.supervisorCodeKey && p.studentName) {
       // Load existing submissions to determine version number
-      const sKey2 = p.studentName.trim().toLowerCase().replace(/\s+/g,"_");
-      const histKey = p.supervisorCodeKey + "_history_" + sKey2 + "_ch" + num;
+      const sKey2 = p.studentName.trim().toLowerCase().replace(/\s+/g,"_").slice(0,12);
+      const supCode = p.supervisorCodeKey.replace("sup_code_","").replace(/[^a-z0-9]/gi,"");
+      const histKey = "hist_" + supCode + "_" + sKey2 + "_ch" + num;
       let version = 1;
       try {
         const existing = await safeGet(histKey);
@@ -3435,12 +3474,19 @@ function App() {
         version
       };
 
-      // Save to revision history
+      // Save to revision history (shared storage so supervisor can read cross-device)
       try {
         const existing = await safeGet(histKey);
         const hist = existing && existing.value ? JSON.parse(existing.value) : [];
         hist.push({ version, drafts: draftsForChapter || {}, submittedAt: subPayload.submittedAt });
-        safeSet(histKey, JSON.stringify(hist));
+        await safeSet(histKey, JSON.stringify(hist));
+        // Also cache in SUP_CACHE for same-session supervisor access
+        const prof2 = SUP_CACHE[p.supervisorCodeKey];
+        if (prof2) {
+          if (!prof2.revHistory) prof2.revHistory = {};
+          if (!prof2.revHistory[p.studentName]) prof2.revHistory[p.studentName] = {};
+          prof2.revHistory[p.studentName][num] = hist;
+        }
       } catch(e) {}
       // Write into SUP_CACHE directly — supervisor reads same object
       const prof = SUP_CACHE[p.supervisorCodeKey];
