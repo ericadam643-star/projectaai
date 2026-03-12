@@ -133,6 +133,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2492,6 +2493,39 @@ function SupervisorDashboard({ supervisor, onBack }) {
   // Normalise a name the same way both student and supervisor do
   const normName = (n) => n.trim().toLowerCase().replace(/\s+/g,"_");
 
+  const buildStudentList = (profile) => {
+    const list = profile.students || [];
+    return list.map(s => {
+      const submittedChapters = {};
+      const feedbackStatus = {};
+      // Submissions — straight from profile
+      if (profile.submissions && profile.submissions[s.studentName]) {
+        Object.keys(profile.submissions[s.studentName]).forEach(n => {
+          submittedChapters[parseInt(n)] = profile.submissions[s.studentName][n];
+        });
+      }
+      // Feedback status — straight from profile.reviewStatus
+      if (profile.reviewStatus && profile.reviewStatus[s.studentName]) {
+        Object.keys(profile.reviewStatus[s.studentName]).forEach(n => {
+          feedbackStatus[parseInt(n)] = profile.reviewStatus[s.studentName][n];
+        });
+      }
+      return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
+    });
+  };
+
+  const buildReviewedKeys = (profile) => {
+    const keys = new Set();
+    const list = profile.students || [];
+    list.forEach(s => {
+      const fb = (profile.reviewStatus && profile.reviewStatus[s.studentName]) || {};
+      Object.entries(fb).forEach(([chNum, st]) => {
+        if (st && st !== "pending") keys.add(s.studentName + "_" + parseInt(chNum));
+      });
+    });
+    return keys;
+  };
+
   const loadStudents = async (isRefresh) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
@@ -2541,38 +2575,9 @@ function SupervisorDashboard({ supervisor, onBack }) {
   };
 
   // Pure sync helpers — no storage calls, just read the profile object
-  const buildStudentList = (profile) => {
-    const list = profile.students || [];
-    return list.map(s => {
-      const submittedChapters = {};
-      const feedbackStatus = {};
-      // Submissions — straight from profile
-      if (profile.submissions && profile.submissions[s.studentName]) {
-        Object.keys(profile.submissions[s.studentName]).forEach(n => {
-          submittedChapters[parseInt(n)] = profile.submissions[s.studentName][n];
-        });
-      }
-      // Feedback status — straight from profile.reviewStatus
-      if (profile.reviewStatus && profile.reviewStatus[s.studentName]) {
-        Object.keys(profile.reviewStatus[s.studentName]).forEach(n => {
-          feedbackStatus[parseInt(n)] = profile.reviewStatus[s.studentName][n];
-        });
-      }
-      return { ...s, name: s.studentName, submittedChapters, feedbackStatus };
-    });
-  };
 
-  const buildReviewedKeys = (profile) => {
-    const keys = new Set();
-    const list = profile.students || [];
-    list.forEach(s => {
-      const fb = (profile.reviewStatus && profile.reviewStatus[s.studentName]) || {};
-      Object.entries(fb).forEach(([chNum, st]) => {
-        if (st && st !== "pending") keys.add(s.studentName + "_" + parseInt(chNum));
-      });
-    });
-    return keys;
-  };
+
+
 
   useEffect(() => { loadStudents(false); }, [supervisor.codeKey]);
 
