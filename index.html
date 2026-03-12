@@ -92,6 +92,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -1132,6 +1133,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
 }
 
 function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClose, onDownload }) {
+  const hl = supervisorFeedback ? (supervisorFeedback.highlights || {}) : {};
   const wordCount = Object.values(drafts).join(" ").split(/\s+/).filter(Boolean).length;
   const hasFeedback = supervisorFeedback && (supervisorFeedback.feedback || supervisorFeedback.sectionComments);
   const statusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
@@ -1215,6 +1217,16 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
                     <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>{comment}</div>
                   </div>
                 )}
+
+                {/* Highlight comments */}
+                {(hl[i] || []).filter(function(h) { return h.comment && h.comment.trim(); }).map(function(h) {
+                  return (
+                    <div key={h.id} style={{ padding:"10px 14px", background:"rgba(255,193,7,0.03)", borderTop:"1px solid rgba(255,193,7,0.1)" }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:"rgba(255,193,7,0.8)", marginBottom:4 }}>📌 On: "{h.text.slice(0,70)}{h.text.length > 70 ? "..." : "}"</div>
+                      <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.7 }}>{h.comment}</div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -1917,6 +1929,12 @@ function SupervisorDashboard({ supervisor, onBack }) {
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [view,         setView]         = useState("overview");
   const [sectionComments, setSectionComments] = useState({});
+  const [highlights,     setHighlights]     = useState({});
+  const [activeHighlight,setActiveHighlight]= useState(null);
+  const [hlComment,      setHlComment]      = useState("");
+  const [aiSummary,      setAiSummary]      = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [showSummary,    setShowSummary]    = useState(false);
 
   // Normalise a name the same way both student and supervisor do
   const normName = (n) => n.trim().toLowerCase().replace(/\s+/g,"_");
@@ -2024,12 +2042,15 @@ function SupervisorDashboard({ supervisor, onBack }) {
           setFeedback(saved.feedback || "");
           setStatus(saved.status || "pending");
           setSectionComments(saved.sectionComments || {});
+          setHighlights(saved.highlights || {});
         } else {
           setFeedback(""); setStatus("pending");
         }
         setFeedbackSaved(false);
         setAiSuggestion("");
+        setAiSummary(""); setShowSummary(false);
         setSectionComments({});
+        setHighlights({});
         // Check inline submissions first
         const cachedProf = SUP_CACHE[supervisor.codeKey];
         const inlineSub = cachedProf && cachedProf.submissions && cachedProf.submissions[activeStudent.name] && cachedProf.submissions[activeStudent.name][activeChapter];
@@ -2062,7 +2083,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
     // ── Step 2: Persist to storage in background (non-blocking) ──────────────
     try {
-      const payload = { feedback, status: status || "reviewed", sectionComments, supervisorName: supervisor.name, savedAt: new Date().toISOString() };
+      const payload = { feedback, status: status || "reviewed", sectionComments, highlights, supervisorName: supervisor.name, savedAt: new Date().toISOString() };
       const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + activeChapter;
       safeSet(fbKey, JSON.stringify(payload)); // fire-and-forget
 
@@ -2076,6 +2097,74 @@ function SupervisorDashboard({ supervisor, onBack }) {
       SUP_CACHE[supervisor.codeKey] = prof;
       safeSet(supervisor.codeKey, JSON.stringify(prof)); // fire-and-forget
     } catch(e) { console.error("saveFeedback storage error:", e); }
+  };
+
+  const generateAiSummary = async () => {
+    setSummaryLoading(true); setAiSummary(""); setShowSummary(true);
+    if (!chapterData) { setSummaryLoading(false); return; }
+    try {
+      const chObj = CHAPTERS.find(c => c.num === activeChapter);
+      const parts = [];
+      if (chObj) {
+        chObj.sections.forEach(function(s, i) {
+          const comment = sectionComments[i] || "";
+          const sectionHls = (highlights[i] || []);
+          if (comment.trim() || sectionHls.length > 0) {
+            parts.push("Section " + activeChapter + "." + (i+1) + " — " + s.name + ":");
+            if (comment.trim()) parts.push("General comment: " + comment.trim());
+            sectionHls.forEach(function(hl) {
+              if (hl.comment && hl.comment.trim()) {
+                parts.push("Highlighted: " + hl.text + " → " + hl.comment.trim());
+              }
+            });
+          }
+        });
+      }
+      if (feedback && feedback.trim()) parts.push("Overall: " + feedback.trim());
+      if (parts.length === 0) { setAiSummary("No comments added yet. Add section comments or highlight text first."); setSummaryLoading(false); return; }
+      const sys = "You are an expert academic writing coach summarizing supervisor feedback for a Nigerian undergraduate student. Be specific and actionable.";
+      const prompt = "Supervisor reviewed Chapter " + activeChapter + " with these notes:\n\n" + parts.join("\n") + "\n\nProvide a response with these exact sections:\n\nCORRECTIONS NEEDED\n(bullet each specific correction)\n\nSUPERVISOR EXPECTATIONS\n(bullet what is expected in the revision)\n\nENCOURAGEMENT\n(two encouraging sentences)\n\nUnder 350 words.";
+      const result = await callAI([{ role:"user", content:prompt }], sys);
+      setAiSummary(result);
+    } catch(e) { setAiSummary("Error: " + e.message); }
+    setSummaryLoading(false);
+  };
+
+  const addHighlight = (sectionIdx, text, comment) => {
+    if (!text || !text.trim()) return;
+    const id = Date.now() + "_" + sectionIdx;
+    setHighlights(prev => {
+      const existing = prev[sectionIdx] || [];
+      return { ...prev, [sectionIdx]: [...existing, { id, text: text.trim(), comment: comment || "" }] };
+    });
+    setFeedbackSaved(false);
+  };
+
+  const updateHighlightComment = (sectionIdx, id, comment) => {
+    setHighlights(prev => {
+      const existing = (prev[sectionIdx] || []).map(h => h.id === id ? { ...h, comment } : h);
+      return { ...prev, [sectionIdx]: existing };
+    });
+    setFeedbackSaved(false);
+  };
+
+  const removeHighlight = (sectionIdx, id) => {
+    setHighlights(prev => {
+      const existing = (prev[sectionIdx] || []).filter(h => h.id !== id);
+      return { ...prev, [sectionIdx]: existing };
+    });
+    setFeedbackSaved(false);
+  };
+
+  const handleTextSelection = (sectionIdx) => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+    const selectedText = sel.toString().trim();
+    if (selectedText.length < 3) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    setActiveHighlight({ sectionIdx, selectedText, rect });
+    setHlComment("");
   };
 
   const generateAiFeedback = async () => {
@@ -2157,14 +2246,35 @@ function SupervisorDashboard({ supervisor, onBack }) {
               <span style={{ fontSize:11, fontWeight:600, color: status===key ? cfg.color : "var(--grey3)" }}>{cfg.label}</span>
             </button>
           ))}
-          <button onClick={generateAiFeedback} disabled={aiLoading}
-            style={{ marginLeft:"auto", background:"rgba(0,201,167,0.08)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"4px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer", flexShrink:0 }}>
-            {aiLoading ? "Generating..." : "✦ AI review"}
-          </button>
+          <div style={{ marginLeft:"auto", display:"flex", gap:7, flexShrink:0 }}>
+            <button onClick={generateAiSummary} disabled={summaryLoading}
+              style={{ background:"rgba(255,193,7,0.1)", color:"#FFC107", border:"1px solid rgba(255,193,7,0.25)", borderRadius:20, padding:"4px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer" }}>
+              {summaryLoading ? "Summarising..." : "✦ Summarise comments"}
+            </button>
+            <button onClick={generateAiFeedback} disabled={aiLoading}
+              style={{ background:"rgba(0,201,167,0.08)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"4px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer" }}>
+              {aiLoading ? "Generating..." : "✦ AI review"}
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
         <div style={{ flex:1, overflowY:"auto", padding:"20px 22px", maxWidth:780, width:"100%", margin:"0 auto" }}>
+
+          {/* AI Summary of supervisor comments */}
+          {showSummary && (
+            <div style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase" }}>✦ AI Summary of Your Comments</div>
+                <button onClick={() => setShowSummary(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:14 }}>✕</button>
+              </div>
+              {summaryLoading ? (
+                <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>Summarising your comments...</div>
+              ) : (
+                <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.9, whiteSpace:"pre-wrap" }}>{aiSummary}</div>
+              )}
+            </div>
+          )}
 
           {/* AI feedback banner */}
           {aiSuggestion && (
@@ -2193,14 +2303,70 @@ function SupervisorDashboard({ supervisor, onBack }) {
                   )}
                 </div>
 
-                {/* Student text — locked, read-only */}
-                <div style={{ padding:"14px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                {/* Student text — read-only with highlight support */}
+                <div style={{ padding:"14px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)", position:"relative" }}>
                   {hasDraft ? (
-                    <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.9, whiteSpace:"pre-wrap", userSelect:"text" }}>{drafts[i]}</div>
+                    <div
+                      onMouseUp={() => handleTextSelection(i)}
+                      style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.9, whiteSpace:"pre-wrap", userSelect:"text", cursor:"text" }}>
+                      {drafts[i]}
+                    </div>
                   ) : (
                     <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>No content submitted for this section.</div>
                   )}
+                  <div style={{ fontSize:10, color:"rgba(0,201,167,0.5)", marginTop:6, fontStyle:"italic" }}>
+                    Select any text above to add a highlight comment
+                  </div>
                 </div>
+
+                {/* Highlight popup */}
+                {activeHighlight && activeHighlight.sectionIdx === i && (
+                  <div style={{ margin:"0 16px 12px", background:"rgba(255,193,7,0.08)", border:"1px solid rgba(255,193,7,0.35)", borderRadius:10, padding:"12px 14px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", marginBottom:6 }}>📌 COMMENTING ON: "{activeHighlight.selectedText.slice(0,60)}{activeHighlight.selectedText.length > 60 ? "..." : "}"</div>
+                    <textarea
+                      value={hlComment}
+                      onChange={e => setHlComment(e.target.value)}
+                      placeholder="What needs to change about this? Be specific..."
+                      rows={2}
+                      autoFocus
+                      style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:7, padding:"8px 10px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", resize:"none", outline:"none", boxSizing:"border-box" }}
+                    />
+                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                      <button onClick={() => { addHighlight(i, activeHighlight.selectedText, hlComment); setActiveHighlight(null); setHlComment(""); window.getSelection().removeAllRanges(); }}
+                        style={{ background:"#FFC107", color:"#000", border:"none", borderRadius:7, padding:"6px 14px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                        Add comment
+                      </button>
+                      <button onClick={() => { setActiveHighlight(null); setHlComment(""); window.getSelection().removeAllRanges(); }}
+                        style={{ background:"transparent", color:"var(--grey3)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 14px", fontSize:12, cursor:"pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing highlights for this section */}
+                {(highlights[i] || []).length > 0 && (
+                  <div style={{ margin:"0 16px 12px", display:"flex", flexDirection:"column", gap:7 }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em" }}>📌 HIGHLIGHT COMMENTS</div>
+                    {(highlights[i] || []).map(function(hl) {
+                      return (
+                        <div key={hl.id} style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:8, padding:"10px 12px" }}>
+                          <div style={{ fontSize:11, color:"rgba(255,193,7,0.8)", fontStyle:"italic", marginBottom:5 }}>"...{hl.text.slice(0,80)}{hl.text.length > 80 ? "..." : "}"</div>
+                          <input
+                            value={hl.comment}
+                            onChange={e => updateHighlightComment(i, hl.id, e.target.value)}
+                            placeholder="Add comment on this highlight..."
+                            style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:6, padding:"6px 9px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", outline:"none", boxSizing:"border-box" }}
+                          />
+                          <button onClick={() => removeHighlight(i, hl.id)}
+                            style={{ marginTop:6, background:"transparent", color:"rgba(255,112,67,0.7)", border:"none", fontSize:11, cursor:"pointer", padding:0 }}>
+                            ✕ Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Supervisor comment box */}
                 <div style={{ padding:"12px 16px", background:"rgba(255,193,7,0.03)" }}>
