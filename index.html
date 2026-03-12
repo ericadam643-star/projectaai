@@ -137,6 +137,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -612,11 +613,11 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
 
   useEffect(() => { loadFeedback(); }, [project.supervisorCodeKey, project.studentName]);
 
-  // Also reload feedback when returning from writing screen
+  // Also reload feedback whenever we return to this screen
   useEffect(() => {
-    const timer = setTimeout(() => { loadFeedback(); }, 600);
+    const timer = setTimeout(() => { loadFeedback(); }, 800);
     return () => clearTimeout(timer);
-  }, [project.supervisorCodeKey]);
+  }, []);
   const submittedCount = Object.keys(project.submitted || {}).length;
   const chStatusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
   const chStatusLabel = { pending:"Pending review", approved:"✓ Approved", minor:"Minor revision needed", major:"Major revision needed" };
@@ -2602,6 +2603,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
         setFeedbackSaved(false);
         setAiSuggestion("");
         setAiSummary(""); setShowSummary(false);
+        setSectionComments({});
+        setHighlights({});
         // Check inline submissions first
         const cachedProf = SUP_CACHE[supervisor.codeKey];
         const inlineSub = cachedProf && cachedProf.submissions && cachedProf.submissions[activeStudent.name] && cachedProf.submissions[activeStudent.name][activeChapter];
@@ -2612,9 +2615,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
           const sub = await safeGet(subKey);
           setChapterData(sub && sub.value ? JSON.parse(sub.value) : null);
         }
-        setSectionComments({});
-        setHighlights({});
-      } catch(e) { setSectionComments({}); setHighlights({}); }
+      } catch(e) {}
     };
     load();
   }, [activeStudent, activeChapter]);
@@ -3657,7 +3658,6 @@ function App() {
         <StudentDashboard
           project={project}
           allDrafts={allDrafts}
-          account={account}
           onGoToChapter={ch => { setChapter(ch); setScreen("writing"); }}
           onGoToChapters={() => setScreen("chapters")}
           onViewSubmission={(ch, fb) => { setViewChapter(ch); setViewChapterFeedback(fb || null); }}
@@ -3685,7 +3685,7 @@ function App() {
           onComplete={handleComplete}
         />
       )}
-      {viewChapter && (screen === "dashboard" || screen === "chapters") && (
+      {viewChapter && (
         <SubmissionViewer
           project={project}
           chapter={viewChapter}
