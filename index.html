@@ -124,6 +124,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -670,6 +671,13 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                           onClick={e => { e.stopPropagation(); setReadFeedback(r => ({ ...r, [ch.num]: true })); onViewSubmission(ch, chapterFeedback[ch.num]); }}
                           style={{ fontSize:10, color: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--navy)" : "var(--teal)", background: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--teal)" : "rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600, cursor:"pointer" }}>
                           {chapterFeedback[ch.num] ? (readFeedback[ch.num] ? "View feedback" : "View feedback →") : "View submission"}
+                        </span>
+                      )}
+                      {isSubmitted && chapterFeedback[ch.num] && (chapterFeedback[ch.num].status === "minor" || chapterFeedback[ch.num].status === "major") && (
+                        <span
+                          onClick={e => { e.stopPropagation(); onSelect(ch); }}
+                          style={{ fontSize:10, color:"var(--navy)", background: chapterFeedback[ch.num].status === "major" ? "#FF7043" : "#FFC107", borderRadius:5, padding:"2px 7px", fontWeight:700, cursor:"pointer" }}>
+                          ✏️ Revise & Resubmit
                         </span>
                       )}
                       {!isSubmitted && isActive && <span style={{ fontSize:10, color:"var(--teal)", background:"rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>Continue</span>}
@@ -1399,6 +1407,128 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// REVISION HISTORY VIEWER
+// ═══════════════════════════════════════════════════════════════
+function RevisionHistory({ project, chapterNum, currentDrafts }) {
+  const [history, setHistory]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [viewVersion, setViewVersion] = useState(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareV, setCompareV]   = useState(null);
+
+  useEffect(function() {
+    const load = async () => {
+      if (!project || !project.supervisorCodeKey || !project.studentName) { setLoading(false); return; }
+      try {
+        const sKey = project.studentName.trim().toLowerCase().replace(/\s+/g,"_");
+        const histKey = project.supervisorCodeKey + "_history_" + sKey + "_ch" + chapterNum;
+        const res = await safeGet(histKey);
+        if (res && res.value) {
+          setHistory(JSON.parse(res.value));
+        }
+      } catch(e) {}
+      setLoading(false);
+    };
+    load();
+  }, [project, chapterNum]);
+
+  const chObj = CHAPTERS.find(function(c){ return c.num === chapterNum; });
+
+  if (loading) return <div style={{ fontSize:12, color:"var(--grey3)", padding:"10px 0" }}>Loading history...</div>;
+  if (history.length === 0) return null;
+
+  return (
+    <div style={{ marginTop:20 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+        📋 Revision History — {history.length} submission{history.length > 1 ? "s" : ""}
+      </div>
+
+      {/* Version selector */}
+      <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginBottom:14 }}>
+        {history.map(function(h, i) {
+          const isActive = viewVersion === i;
+          return (
+            <button key={i} onClick={() => { setViewVersion(isActive ? null : i); setCompareMode(false); setCompareV(null); }}
+              style={{ background: isActive ? "rgba(0,201,167,0.15)" : "rgba(255,255,255,0.05)", border:"1px solid " + (isActive ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.1)"), borderRadius:8, padding:"6px 12px", cursor:"pointer", color: isActive ? "var(--teal)" : "var(--grey3)", fontSize:11, fontWeight:600 }}>
+              v{h.version} · {new Date(h.submittedAt).toLocaleDateString("en-GB", { day:"numeric", month:"short" })}
+            </button>
+          );
+        })}
+        {history.length > 1 && (
+          <button onClick={() => { setCompareMode(!compareMode); setViewVersion(null); setCompareV(null); }}
+            style={{ background: compareMode ? "rgba(255,193,7,0.15)" : "rgba(255,255,255,0.05)", border:"1px solid " + (compareMode ? "rgba(255,193,7,0.4)" : "rgba(255,255,255,0.1)"), borderRadius:8, padding:"6px 12px", cursor:"pointer", color: compareMode ? "#FFC107" : "var(--grey3)", fontSize:11, fontWeight:600 }}>
+            ⟺ Compare versions
+          </button>
+        )}
+      </div>
+
+      {/* Single version view */}
+      {viewVersion !== null && history[viewVersion] && (
+        <div style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"var(--teal)", marginBottom:12 }}>
+            Version {history[viewVersion].version} — submitted {new Date(history[viewVersion].submittedAt).toLocaleString("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })}
+          </div>
+          {chObj && chObj.sections.map(function(s, i) {
+            const text = history[viewVersion].drafts[i] || "";
+            if (!text.trim()) return null;
+            return (
+              <div key={i} style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"var(--grey2)", marginBottom:5 }}>{chapterNum}.{i+1} {s.name}</div>
+                <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{text}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Compare mode */}
+      {compareMode && (
+        <div>
+          <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:10 }}>Select two versions to compare:</div>
+          <div style={{ display:"flex", gap:7, marginBottom:14, flexWrap:"wrap" }}>
+            {history.map(function(h, i) {
+              const sel = compareV !== null && compareV === i;
+              return (
+                <button key={i} onClick={() => setCompareV(sel ? null : i)}
+                  style={{ background: sel ? "rgba(255,193,7,0.15)" : "rgba(255,255,255,0.05)", border:"1px solid " + (sel ? "rgba(255,193,7,0.4)" : "rgba(255,255,255,0.1)"), borderRadius:8, padding:"6px 12px", cursor:"pointer", color: sel ? "#FFC107" : "var(--grey3)", fontSize:11, fontWeight:600 }}>
+                  v{h.version}
+                </button>
+              );
+            })}
+          </div>
+
+          {compareV !== null && history[compareV] && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              {/* Latest (current) vs selected */}
+              {[history[history.length-1], history[compareV]].map(function(ver, col) {
+                return (
+                  <div key={col} style={{ background:"var(--navy2)", border:"1px solid " + (col===0 ? "rgba(0,201,167,0.25)" : "rgba(255,193,7,0.25)"), borderRadius:12, padding:"12px 14px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color: col===0 ? "var(--teal)" : "#FFC107", marginBottom:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>
+                      {col===0 ? "Latest (v" + ver.version + ")" : "v" + ver.version}
+                    </div>
+                    {chObj && chObj.sections.map(function(s, i) {
+                      const text = ver.drafts[i] || "";
+                      if (!text.trim()) return null;
+                      return (
+                        <div key={i} style={{ marginBottom:12 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:"var(--grey2)", marginBottom:4 }}>{chapterNum}.{i+1} {s.name}</div>
+                          <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>{text}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClose, onDownload }) {
   const hl = supervisorFeedback ? (supervisorFeedback.highlights || {}) : {};
   const wordCount = Object.values(drafts).join(" ").split(/\s+/).filter(Boolean).length;
@@ -1497,6 +1627,11 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
               </div>
             );
           })}
+          {/* Revision history for student */}
+          <RevisionHistory
+            project={project}
+            chapterNum={chapter.num}
+          />
         </div>
       </div>
     </div>
@@ -2085,7 +2220,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
             style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
             Chapters
           </button>
-          <NotificationBell userKey={project && project.studentName ? project.studentName.trim().toLowerCase().replace(/\s+/g,"_") : "student"} />
+          <NotificationBell userKey={(account && account.email) ? account.email.replace(/[^a-z0-9]/gi,"_") : "student"} />
           <button onClick={onSignOut}
             style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
             Sign out
@@ -2609,9 +2744,14 @@ function SupervisorDashboard({ supervisor, onBack }) {
         </div>
 
         {/* Lock notice */}
-        <div style={{ background:"rgba(255,112,67,0.06)", borderBottom:"1px solid rgba(255,112,67,0.15)", padding:"9px 20px", display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{ background:"rgba(255,112,67,0.06)", borderBottom:"1px solid rgba(255,112,67,0.15)", padding:"9px 20px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <span style={{ fontSize:13 }}>🔒</span>
           <span style={{ fontSize:12, color:"#FF7043" }}>This chapter is locked for review. The student cannot edit it until you return it for revision.</span>
+          {chapterData && chapterData.version && chapterData.version > 1 && (
+            <span style={{ marginLeft:"auto", background:"rgba(255,193,7,0.15)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700, color:"#FFC107" }}>
+              🔄 Revision v{chapterData.version}
+            </span>
+          )}
         </div>
 
         {/* Status bar */}
@@ -2787,9 +2927,19 @@ function SupervisorDashboard({ supervisor, onBack }) {
             </div>
           </div>
 
-          <button onClick={saveAll} style={{ width:"100%", marginTop:16, marginBottom:32, background: feedbackSaved ? "rgba(76,175,80,0.15)" : "var(--teal)", color: feedbackSaved ? "#4CAF50" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.4)" : "none", borderRadius:10, padding:"14px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor:"pointer" }}>
+          <button onClick={saveAll} style={{ width:"100%", marginTop:16, marginBottom:24, background: feedbackSaved ? "rgba(76,175,80,0.15)" : "var(--teal)", color: feedbackSaved ? "#4CAF50" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.4)" : "none", borderRadius:10, padding:"14px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor:"pointer" }}>
             {feedbackSaved ? "✓ All comments saved" : "Save all comments →"}
           </button>
+
+          {/* Revision history for supervisor */}
+          {activeStudent && activeChapter && (
+            <div style={{ marginBottom:32 }}>
+              <RevisionHistory
+                project={{ supervisorCodeKey: supervisor.codeKey, studentName: activeStudent.name }}
+                chapterNum={activeChapter}
+              />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -3265,11 +3415,32 @@ function App() {
       return updated;
     });
     if (p && p.supervisorCodeKey && p.studentName) {
+      // Load existing submissions to determine version number
+      const sKey2 = p.studentName.trim().toLowerCase().replace(/\s+/g,"_");
+      const histKey = p.supervisorCodeKey + "_history_" + sKey2 + "_ch" + num;
+      let version = 1;
+      try {
+        const existing = await safeGet(histKey);
+        if (existing && existing.value) {
+          const hist = JSON.parse(existing.value);
+          version = (hist.length || 0) + 1;
+        }
+      } catch(e) {}
+
       const subPayload = {
         drafts: draftsForChapter || {},
         topic: p.topic, dept: p.dept, uni: p.uni,
-        studentName: p.studentName, submittedAt: new Date().toISOString()
+        studentName: p.studentName, submittedAt: new Date().toISOString(),
+        version
       };
+
+      // Save to revision history
+      try {
+        const existing = await safeGet(histKey);
+        const hist = existing && existing.value ? JSON.parse(existing.value) : [];
+        hist.push({ version, drafts: draftsForChapter || {}, submittedAt: subPayload.submittedAt });
+        safeSet(histKey, JSON.stringify(hist));
+      } catch(e) {}
       // Write into SUP_CACHE directly — supervisor reads same object
       const prof = SUP_CACHE[p.supervisorCodeKey];
       if (prof) {
