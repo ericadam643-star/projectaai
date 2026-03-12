@@ -130,6 +130,7 @@
 
 
 
+
 function useBreakpoint() {
   const [bp, setBp] = useState(() => {
     const w = window.innerWidth;
@@ -2248,7 +2249,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
   const pct            = Math.round((submittedCount / 5) * 100);
   const totalWords     = Object.values(allDrafts).reduce((tot, chDraft) =>
     tot + Object.values(chDraft || {}).join(" ").split(/\s+/).filter(Boolean).length, 0);
-  const hasFeedback    = submittedNums.filter(n => feedback[n] && !readFeedback[n]);  // only unread
+  const hasFeedback    = submittedNums.filter(n => feedback[n] && feedback[n].status !== "pending" && !readFeedback[n]);  // only unread, exclude pending-reset entries
   const nextChapter    = CHAPTERS.find(ch => !submitted[ch.num]) || null;
   const firstName      = (project.studentName || "").split(" ")[0];
 
@@ -2267,7 +2268,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
             style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
             Chapters
           </button>
-          <NotificationBell userKey={(account && account.email) ? account.email.replace(/[^a-z0-9]/gi,"_") : "student"} />
+          <NotificationBell userKey={project && project.studentName ? project.studentName.trim().toLowerCase().replace(/[^a-z0-9]/gi,"_") : "student"} />
           <button onClick={onSignOut}
             style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
             Sign out
@@ -2658,19 +2659,17 @@ function SupervisorDashboard({ supervisor, onBack }) {
       safeSet(supervisor.codeKey, JSON.stringify(prof)); // fire-and-forget
 
       // Clear resubmit flag now that supervisor has reviewed this version
-      try {
-        const sKeyFb = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
-        const resubFlagKey = supervisor.codeKey + "_resub_" + sKeyFb + "_ch" + chNum;
-        safeDel(resubFlagKey);
-      } catch(e) {}
+      const sKeyFb = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
+      const resubFlagKey = supervisor.codeKey + "_resub_" + sKeyFb + "_ch" + chNum;
+      await safeDel(resubFlagKey);
 
       // Notify student
-      const stuKey = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
+      const stuKey = activeStudent.name.trim().toLowerCase().replace(/[^a-z0-9]/gi,"_");
       const statusMsg = status === "approved" ? "✅ Approved" : status === "minor" ? "⚠️ Minor revision needed" : status === "major" ? "🔴 Major revision needed" : "💬 Feedback received";
       pushNotification(stuKey, statusMsg + " — Chapter " + chNum + " feedback from your supervisor is ready.");
 
       // Notify supervisor themselves
-      const supKey = supervisor.codeKey.replace(/[^a-z0-9]/gi,"_");
+      const supKey = (supervisor.code || "").replace(/[^a-z0-9]/gi,"_").toLowerCase();
       pushNotification(supKey, "✓ Feedback saved for " + activeStudent.name + " — Chapter " + chNum + ".");
     } catch(e) { console.error("saveFeedback storage error:", e); }
   };
@@ -3052,7 +3051,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
               style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color: refreshing ? "var(--grey3)" : "var(--grey2)", fontSize:12, cursor:"pointer" }}>
               {refreshing ? "Refreshing..." : "↻ Refresh"}
             </button>
-            <NotificationBell userKey={(supervisor && supervisor.code) ? supervisor.code : "supervisor"} />
+            <NotificationBell userKey={(supervisor && supervisor.code) ? supervisor.code.replace(/[^a-z0-9]/gi,"_").toLowerCase() : "supervisor"} />
             <button onClick={onBack}
               style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
               Sign out
@@ -3565,14 +3564,14 @@ function App() {
       if (prof) safeSet(p.supervisorCodeKey, JSON.stringify(prof));
 
       // Notify supervisor
-      const supKey = p.supervisorCodeKey.replace(/[^a-z0-9]/gi,"_");
+      const supKey = p.supervisorCode ? p.supervisorCode.replace(/[^a-z0-9]/gi,"_").toLowerCase() : p.supervisorCodeKey.replace(/[^a-z0-9]/gi,"_");
       const submitMsg = version > 1
         ? "🔄 " + p.studentName + " resubmitted Chapter " + num + " (v" + version + ") — ready for re-review."
         : "📥 " + p.studentName + " submitted Chapter " + num + " for review.";
       pushNotification(supKey, submitMsg);
 
       // Notify student themselves
-      const stuKey = (p.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
+      const stuKey = (p.studentName || "").trim().toLowerCase().replace(/[^a-z0-9]/gi,"_");
       const stuMsg = version > 1
         ? "🔄 Chapter " + num + " revision (v" + version + ") submitted to your supervisor."
         : "✅ Chapter " + num + " submitted to your supervisor successfully.";
