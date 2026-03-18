@@ -706,7 +706,16 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                       )}
                       {isSubmitted && (
                         <span
-                          onClick={e => { e.stopPropagation(); setReadFeedback(r => ({ ...r, [ch.num]: true })); onViewSubmission(ch, chapterFeedback[ch.num]); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            const updated = { ...readFeedback, [ch.num]: true };
+                            setReadFeedback(updated);
+                            try {
+                              const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
+                              localStorage.setItem("pjt_" + readKey, JSON.stringify(updated));
+                            } catch(e) {}
+                            onViewSubmission(ch, chapterFeedback[ch.num]);
+                          }}
                           style={{ fontSize:10, color: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--navy)" : "var(--teal)", background: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--teal)" : "rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600, cursor:"pointer" }}>
                           {chapterFeedback[ch.num] ? (readFeedback[ch.num] ? "View feedback" : "View feedback →") : "View submission"}
                         </span>
@@ -2231,7 +2240,14 @@ function pushNotification(userKey, message) {
 
 function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToChapters, onViewSubmission, onSignOut }) {
   const [feedback,        setFeedback]        = useState({});
-  const [readFeedback,    setReadFeedback]     = useState({});  // { [chNum]: true } — chapters whose feedback has been viewed
+  const [readFeedback,    setReadFeedback]     = useState(() => {
+    // Initialise synchronously so badge is correct on first render
+    try {
+      const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
+      const stored = localStorage.getItem("pjt_" + readKey);
+      return stored ? JSON.parse(stored) : {};
+    } catch(e) { return {}; }
+  });  // { [chNum]: true } — chapters whose feedback has been viewed
   const [loadingFeedback, setLoadingFeedback] = useState(true);
   const [tipIdx,          setTipIdx]          = useState(0);
 
@@ -2244,14 +2260,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
     "Your supervisor's feedback is a gift. Act on every point before resubmitting.",
   ];
 
-  useEffect(() => {
-    // Load which feedback items have already been read
-    try {
-      const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
-      const stored = localStorage.getItem("pjt_" + readKey);
-      if (stored) setReadFeedback(JSON.parse(stored));
-    } catch(e) {}
-  }, [project.studentName]);
+  // readFeedback is initialised synchronously in useState lazy initialiser above
 
   useEffect(() => {
     const load = async () => {
