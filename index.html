@@ -3823,6 +3823,68 @@ function ResourcesScreen({ project, onBack }) {
   const [citeTool, setCiteTool] = React.useState({ author:"", year:"", title:"", journal:"", style:"APA" });
   const [citeResult, setCiteResult] = React.useState("");
   const [citeLoading, setCiteLoading] = React.useState(false);
+  const [topicLibrary, setTopicLibrary] = React.useState(null);  // AI-generated topic resources
+  const [libLoading, setLibLoading] = React.useState(false);
+  const [libError, setLibError] = React.useState("");
+
+  // Load topic-specific library when component mounts
+  React.useEffect(() => {
+    if (!project) return;
+    // Check cache first
+    const cacheKey = "pjt_lib_" + (project.topic || "").slice(0,40).replace(/\s+/g,"_").toLowerCase();
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) { setTopicLibrary(JSON.parse(cached)); return; }
+    } catch(e) {}
+    generateTopicLibrary(cacheKey);
+  }, []);
+
+  const generateTopicLibrary = async (cacheKey) => {
+    setLibLoading(true); setLibError("");
+    try {
+      const sys = "You are an academic librarian helping Nigerian university final-year students find relevant books and journals. You provide accurate, real academic references.";
+      const prompt = `Generate a topic-specific research library for a Nigerian university student with this project:
+Topic: "${project.topic}"
+Department: ${project.dept}
+University: ${project.uni}
+
+Return a JSON object with exactly this structure (no markdown, just raw JSON):
+{
+  "books": [
+    { "title": "Book Title", "author": "Author Name(s)", "year": "Year", "publisher": "Publisher", "relevance": "One sentence on why this is useful for their topic", "searchUrl": "https://scholar.google.com/scholar?q=TITLE+AUTHOR" }
+  ],
+  "journals": [
+    { "name": "Journal Name", "focus": "What this journal covers", "access": "Free/Paid", "url": "Journal URL or Google Scholar link", "relevance": "Why this journal is useful for their department/topic" }
+  ],
+  "keyAuthors": [
+    { "name": "Author Name", "expertise": "Their field and why relevant", "searchUrl": "https://scholar.google.com/scholar?q=AUTHOR+NAME" }
+  ]
+}
+
+Rules:
+- Books: provide 5 real, well-known academic books directly relevant to the topic and department
+- Journals: provide 4 real academic journals where the student can find articles on their topic (include at least 1 African journal)
+- Key Authors: provide 3 leading academics in this field whose work the student should read
+- All entries must be real and verifiable
+- searchUrl should be a working Google Scholar search link for that item`;
+
+      const resp = await callAI([{ role:"user", content:prompt }], sys);
+      const clean = resp.replace(/```json|```/g,"").trim();
+      const parsed = JSON.parse(clean);
+      setTopicLibrary(parsed);
+      try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch(e) {}
+    } catch(e) {
+      setLibError("Could not load topic resources. Check your internet connection and try again.");
+    }
+    setLibLoading(false);
+  };
+
+  const refreshLibrary = () => {
+    const cacheKey = "pjt_lib_" + (project.topic || "").slice(0,40).replace(/\s+/g,"_").toLowerCase();
+    try { localStorage.removeItem(cacheKey); } catch(e) {}
+    setTopicLibrary(null);
+    generateTopicLibrary(cacheKey);
+  };
 
   const runCite = async () => {
     if (!citeTool.author || !citeTool.title) return;
@@ -3872,38 +3934,120 @@ function ResourcesScreen({ project, onBack }) {
           {/* ── RESEARCH LIBRARY ─────────────────────────────── */}
           {activeTab === "library" && (
             <div className="fu">
-              <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:20, lineHeight:1.7 }}>
-                Curated resources to help you at every stage of your final-year project. Click any item to open it.
+              {/* Topic header */}
+              <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.15)", borderRadius:12, padding:"14px 16px", marginBottom:20, display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12 }}>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Personalised for your project</div>
+                  <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:3 }}>{project.topic}</div>
+                  <div style={{ fontSize:11, color:"var(--grey3)" }}>{project.dept} · {project.uni}</div>
+                </div>
+                {!libLoading && (
+                  <button onClick={refreshLibrary}
+                    style={{ background:"transparent", border:"1px solid rgba(0,201,167,0.25)", borderRadius:8, padding:"6px 12px", color:"var(--teal)", fontSize:11, fontFamily:"var(--font-d)", fontWeight:600, cursor:"pointer", flexShrink:0 }}>
+                    ↺ Refresh
+                  </button>
+                )}
               </div>
-              {RESEARCH_LIBRARY.map((cat, ci) => (
-                <div key={ci} style={{ marginBottom:14 }}>
-                  <button
-                    onClick={() => setExpandedCat(expandedCat === ci ? null : ci)}
-                    style={{ width:"100%", background: expandedCat === ci ? "rgba(0,201,167,0.08)" : "var(--navy2)", border:"1px solid " + (expandedCat === ci ? "rgba(0,201,167,0.3)" : "rgba(255,255,255,0.07)"), borderRadius:12, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", transition:"all 0.2s" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <span style={{ fontSize:18 }}>{cat.icon}</span>
-                      <div style={{ textAlign:"left" }}>
-                        <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>{cat.category}</div>
-                        <div style={{ fontSize:10, color:"var(--grey3)", marginTop:2 }}>{cat.items.length} resources</div>
+
+              {/* Loading state */}
+              {libLoading && (
+                <div style={{ textAlign:"center", padding:"40px 20px" }}>
+                  <div style={{ width:32, height:32, border:"3px solid rgba(0,201,167,0.2)", borderTop:"3px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 16px" }} />
+                  <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:6 }}>Building your library...</div>
+                  <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.7 }}>Finding books, journals and key authors<br />relevant to your specific topic.</div>
+                </div>
+              )}
+
+              {/* Error state */}
+              {libError && !libLoading && (
+                <div style={{ background:"rgba(255,82,82,0.06)", border:"1px solid rgba(255,82,82,0.2)", borderRadius:12, padding:"16px 18px", marginBottom:16, textAlign:"center" }}>
+                  <div style={{ fontSize:13, color:"#FF5252", marginBottom:10 }}>{libError}</div>
+                  <button onClick={refreshLibrary} style={{ background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"8px 20px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer" }}>Try Again</button>
+                </div>
+              )}
+
+              {/* Topic-specific results */}
+              {topicLibrary && !libLoading && (
+                <div className="fi">
+
+                  {/* Books */}
+                  <div style={{ marginBottom:20 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                      <span style={{ fontSize:18 }}>📗</span>
+                      <div>
+                        <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:800, color:"var(--white)" }}>Recommended Books</div>
+                        <div style={{ fontSize:10, color:"var(--grey3)", marginTop:1 }}>Key texts relevant to your topic</div>
                       </div>
                     </div>
-                    <span style={{ color:"var(--teal)", fontSize:14, transition:"transform 0.2s", transform: expandedCat === ci ? "rotate(90deg)" : "none" }}>›</span>
-                  </button>
-                  {expandedCat === ci && (
-                    <div className="fi" style={{ marginTop:6, display:"flex", flexDirection:"column", gap:8 }}>
-                      {cat.items.map((item, ii) => (
-                        <a key={ii} href={item.url} target="_blank" rel="noopener noreferrer"
-                          style={{ display:"block", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, padding:"14px 16px", textDecoration:"none", transition:"all 0.15s" }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.05)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.2)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}>
-                          <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--teal)", marginBottom:5 }}>{item.title} →</div>
-                          <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>{item.desc}</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {(topicLibrary.books || []).map((book, i) => (
+                        <a key={i} href={book.searchUrl || "https://scholar.google.com/scholar?q=" + encodeURIComponent(book.title + " " + book.author)} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"block", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:11, padding:"14px 16px", textDecoration:"none", transition:"all 0.15s" }}
+                          onMouseEnter={e => { e.currentTarget.style.background="rgba(0,201,167,0.05)"; e.currentTarget.style.borderColor="rgba(0,201,167,0.2)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.07)"; }}>
+                          <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--teal)", marginBottom:4 }}>{book.title} →</div>
+                          <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:6 }}>{book.author} · {book.year} · {book.publisher}</div>
+                          <div style={{ fontSize:12, color:"rgba(196,201,208,0.85)", lineHeight:1.6 }}>{book.relevance}</div>
                         </a>
                       ))}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Journals */}
+                  <div style={{ marginBottom:20 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                      <span style={{ fontSize:18 }}>📄</span>
+                      <div>
+                        <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:800, color:"var(--white)" }}>Relevant Journals</div>
+                        <div style={{ fontSize:10, color:"var(--grey3)", marginTop:1 }}>Where to find articles on your topic</div>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {(topicLibrary.journals || []).map((j, i) => (
+                        <a key={i} href={j.url || "https://scholar.google.com/scholar?q=" + encodeURIComponent(j.name)} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"block", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:11, padding:"14px 16px", textDecoration:"none", transition:"all 0.15s" }}
+                          onMouseEnter={e => { e.currentTarget.style.background="rgba(0,201,167,0.05)"; e.currentTarget.style.borderColor="rgba(0,201,167,0.2)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.07)"; }}>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+                            <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--teal)" }}>{j.name} →</div>
+                            <span style={{ fontSize:10, fontWeight:600, color: j.access === "Free" ? "#4CAF50" : "#FFC107", background: j.access === "Free" ? "rgba(76,175,80,0.1)" : "rgba(255,193,7,0.1)", borderRadius:20, padding:"2px 8px" }}>{j.access}</span>
+                          </div>
+                          <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:5 }}>{j.focus}</div>
+                          <div style={{ fontSize:12, color:"rgba(196,201,208,0.85)", lineHeight:1.6 }}>{j.relevance}</div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Key Authors */}
+                  <div style={{ marginBottom:8 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                      <span style={{ fontSize:18 }}>🧑‍🏫</span>
+                      <div>
+                        <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:800, color:"var(--white)" }}>Key Authors to Read</div>
+                        <div style={{ fontSize:10, color:"var(--grey3)", marginTop:1 }}>Leading academics in your field</div>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {(topicLibrary.keyAuthors || []).map((a, i) => (
+                        <a key={i} href={a.searchUrl || "https://scholar.google.com/scholar?q=" + encodeURIComponent(a.name)} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:11, padding:"12px 16px", textDecoration:"none", transition:"all 0.15s" }}
+                          onMouseEnter={e => { e.currentTarget.style.background="rgba(0,201,167,0.05)"; e.currentTarget.style.borderColor="rgba(0,201,167,0.2)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.07)"; }}>
+                          <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, color:"var(--teal)", flexShrink:0 }}>
+                            {a.name.charAt(0)}
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontFamily:"var(--font-d)", fontSize:12, fontWeight:700, color:"var(--teal)", marginBottom:3 }}>{a.name} →</div>
+                            <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.5 }}>{a.expertise}</div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
-              ))}
+              )}
             </div>
           )}
 
