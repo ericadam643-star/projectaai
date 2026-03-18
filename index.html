@@ -218,6 +218,19 @@ const STYLES = `
     .rp-show-desktop { display:none !important; }
     .rp-grid-3 { grid-template-columns:repeat(3,1fr); }
   }
+
+  .ai-key-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; }
+  .ai-key-modal { background:#1A2E42; border:1px solid rgba(0,201,167,0.3); border-radius:16px; padding:28px; width:100%; max-width:420px; }
+  .ai-key-modal h3 { font-family:var(--font-d); font-size:17px; font-weight:700; color:#fff; margin-bottom:6px; }
+  .ai-key-modal p { font-size:12px; color:#8892A0; line-height:1.7; margin-bottom:18px; }
+  .ai-key-input { width:100%; background:#0D1B2A; border:1px solid rgba(255,255,255,0.12); color:#fff; padding:11px 14px; border-radius:10px; font-size:13px; font-family:var(--font-b); outline:none; margin-bottom:14px; transition:border-color 0.2s; }
+  .ai-key-input:focus { border-color:var(--teal); }
+  .ai-key-input::placeholder { color:rgba(136,146,160,0.5); }
+  .ai-key-save-btn { width:100%; padding:12px; background:var(--teal); color:#0D1B2A; border:none; border-radius:10px; font-family:var(--font-d); font-weight:700; font-size:14px; cursor:pointer; }
+  .ai-key-save-btn:hover { background:#00A688; }
+  .ai-key-cancel { width:100%; padding:8px; background:transparent; color:#8892A0; border:none; font-size:12px; cursor:pointer; margin-top:6px; }
+  .ai-key-status.active { background:rgba(0,201,167,0.1); border:1px solid rgba(0,201,167,0.25); color:var(--teal); border-radius:20px; padding:3px 10px; font-size:11px; }
+  .ai-key-status.inactive { background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.25); color:#FF5252; border-radius:20px; padding:3px 10px; font-size:11px; }
 `;
 
 const Spinner = () => (
@@ -382,13 +395,32 @@ function makeCode() {
   return c.slice(0,3) + "-" + c.slice(3);
 }
 
+// ── API key helpers ─────────────────────────────────────────────────────────
+const AI_KEY_STORAGE = "pjt_anthropic_key";
+
+function getAIKey() {
+  try { return localStorage.getItem(AI_KEY_STORAGE) || ""; } catch(e) { return ""; }
+}
+function saveAIKey(key) {
+  try { localStorage.setItem(AI_KEY_STORAGE, key.trim()); } catch(e) {}
+}
+
 async function callAI(messages, systemPrompt) {
-  // Use Netlify proxy (/.netlify/functions/ai) when hosted on Netlify
-  // Falls back to direct API call when running as Claude artifact (has built-in auth)
+  const key = getAIKey();
+  if (!key) {
+    if (window._onNoAIKey) window._onNoAIKey(null);
+    throw new Error("NO_KEY");
+  }
+
   const isNetlify = window.location.hostname.includes("netlify.app") || window.location.hostname.includes("netlify.com");
   const url = isNetlify ? "/.netlify/functions/ai" : "https://api.anthropic.com/v1/messages";
 
-  const headers = { "Content-Type": "application/json" };
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": key,
+    "anthropic-version": "2023-06-01",
+    "anthropic-dangerous-allow-browser": "true",
+  };
   const bodyObj = { model:"claude-sonnet-4-20250514", max_tokens:1000, system:systemPrompt, messages };
 
   const res = await fetch(url, {
@@ -914,7 +946,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       }
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setAiResponse(resp);
-    } catch(e) { setAiResponse("Error: " + e.message); }
+    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -925,7 +957,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
       const resp = await callAI([{ role:"user", content:q }], sys);
       setAiResponse(resp);
-    } catch(e) { setAiResponse("Error: " + e.message); }
+    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -936,7 +968,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Format this source in " + citeSrc.style + " style. Author(s): " + citeSrc.author + ". Year: " + citeSrc.year + ". Title: " + citeSrc.title + ". Journal/Publisher: " + (citeSrc.journal || "not provided") + ". Output only the formatted reference list entry.";
       const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
       setCiteResult(resp.trim());
-    } catch(e) { setCiteResult("Error: " + e.message); }
+    } catch(e) { if (e.message === "NO_KEY") { setCiteResult(""); } else { setCiteResult("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -948,7 +980,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Here is the full Chapter " + chapter.num + " draft:\n\n" + allText + "\n\nProvide structured feedback:\n\nOverall Assessment (2-3 sentences)\n\nWhat is strong (2-3 points)\n\nWhat needs improvement (2-3 actionable points)\n\nMissing content\n\nBefore submitting to supervisor (1-2 critical fixes)\n\nBe specific and grounded in the topic: " + project.topic;
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setFeedback(resp);
-    } catch(e) { setFeedback("Error: " + e.message); }
+    } catch(e) { if (e.message === "NO_KEY") {} else { setFeedback("Error: " + e.message); } }
     setFeedbackLoading(false);
   };
 
@@ -2746,7 +2778,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const prompt = "Supervisor reviewed Chapter " + activeChapter + " with these notes:\n\n" + parts.join("\n") + "\n\nProvide a response with these exact sections:\n\nCORRECTIONS NEEDED\n(bullet each specific correction)\n\nSUPERVISOR EXPECTATIONS\n(bullet what is expected in the revision)\n\nENCOURAGEMENT\n(two encouraging sentences)\n\nUnder 350 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setAiSummary(result);
-    } catch(e) { setAiSummary("Error: " + e.message); }
+    } catch(e) { if (e.message === "NO_KEY") { setAiSummary(""); } else { setAiSummary("Error: " + e.message); } }
     setSummaryLoading(false);
   };
 
@@ -2798,7 +2830,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const text = await callAI([{ role:"user", content:prompt }], sys);
       setAiSuggestion(text);
       setFeedback(text);
-    } catch(e) { setAiSuggestion("Error: " + e.message); }
+    } catch(e) { if (e.message === "NO_KEY") { setAiSuggestion(""); } else { setAiSuggestion("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -3608,6 +3640,75 @@ function SupervisorDashboard({ supervisor, onBack }) {
 }
 
 
+// ── API Key Modal Component ───────────────────────────────────────────────
+function AIKeyModal({ onSave, onCancel, isRequired }) {
+  const [key, setKey] = React.useState(getAIKey());
+  const [error, setError] = React.useState("");
+  const [testing, setTesting] = React.useState(false);
+
+  const handleSave = async () => {
+    const trimmed = key.trim();
+    if (!trimmed.startsWith("sk-ant-")) {
+      setError("Key should start with sk-ant-  —  check and try again.");
+      return;
+    }
+    setTesting(true); setError("");
+    // Quick test call
+    try {
+      saveAIKey(trimmed);
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type":"application/json", "x-api-key":trimmed, "anthropic-version":"2023-06-01", "anthropic-dangerous-allow-browser":"true" },
+        body: JSON.stringify({ model:"claude-haiku-20240307", max_tokens:10, messages:[{ role:"user", content:"Hi" }] })
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error?.message || "Invalid key — please check and try again.");
+        saveAIKey(""); setTesting(false); return;
+      }
+      setTesting(false);
+      onSave(trimmed);
+    } catch(e) {
+      setError("Connection error. Check your internet and try again.");
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="ai-key-modal-overlay" onClick={isRequired ? undefined : onCancel}>
+      <div className="ai-key-modal" onClick={e => e.stopPropagation()}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+          <span style={{ fontSize:22 }}>🔑</span>
+          <h3>Activate AI Features</h3>
+        </div>
+        <p>
+          Projecta uses Claude AI for writing guidance, feedback, and chapter review.
+          To activate it, enter your Anthropic API key below. Your key is stored only
+          on this device and never shared.
+          <br/><br/>
+          Get a free key at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style={{ color:"var(--teal)" }}>console.anthropic.com</a>
+        </p>
+        <input
+          className="ai-key-input"
+          type="password"
+          placeholder="sk-ant-api03-..."
+          value={key}
+          onChange={e => { setKey(e.target.value); setError(""); }}
+          onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
+          autoFocus
+        />
+        {error && <div style={{ fontSize:12, color:"#FF5252", marginBottom:12, lineHeight:1.5 }}>⚠ {error}</div>}
+        <button className="ai-key-save-btn" onClick={handleSave} disabled={testing || !key.trim()}>
+          {testing ? "Verifying key..." : "Save & Activate AI"}
+        </button>
+        {!isRequired && (
+          <button className="ai-key-cancel" onClick={onCancel}>Cancel</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [role,        setRole]        = useState(null);  // null | "student" | "supervisor"
   const [supervisor,  setSupervisor]  = useState(null);
@@ -3619,6 +3720,14 @@ function App() {
   const [viewChapterFeedback, setViewChapterFeedback] = useState(null);
   const [savedProject, setSavedProject] = useState(null);
   const [studentEmail,  setStudentEmail]  = useState(null);
+  const [showKeyModal,  setShowKeyModal]  = useState(false);
+  const [pendingAIAction, setPendingAIAction] = useState(null); // callback to retry after key saved
+
+  // ── Expose a global handler so AI calls can trigger the key modal ─────────
+  window._onNoAIKey = (retryFn) => {
+    setPendingAIAction(() => retryFn || null);
+    setShowKeyModal(true);
+  };
 
   // ── Load everything from storage on first mount ──────────────────────────
   useEffect(() => {
@@ -3879,6 +3988,36 @@ function App() {
   return (
     <>
       <style>{STYLES}</style>
+
+      {/* ── API Key Modal ── */}
+      {showKeyModal && (
+        <AIKeyModal
+          isRequired={!getAIKey()}
+          onSave={(key) => {
+            saveAIKey(key);
+            setShowKeyModal(false);
+            if (pendingAIAction) { pendingAIAction(); setPendingAIAction(null); }
+          }}
+          onCancel={() => { setShowKeyModal(false); setPendingAIAction(null); }}
+        />
+      )}
+
+      {/* ── Floating AI key status pill (bottom-right) ── */}
+      {screen !== "auth" && (
+        <div
+          onClick={() => setShowKeyModal(true)}
+          title={getAIKey() ? "AI active — click to update key" : "AI not configured — click to set up"}
+          style={{ position:"fixed", bottom:16, right:16, zIndex:500, cursor:"pointer",
+            display:"flex", alignItems:"center", gap:6,
+            background: getAIKey() ? "rgba(0,201,167,0.1)" : "rgba(255,82,82,0.1)",
+            border: "1px solid " + (getAIKey() ? "rgba(0,201,167,0.3)" : "rgba(255,82,82,0.35)"),
+            borderRadius:20, padding:"5px 12px", fontSize:11, fontFamily:"var(--font-d)", fontWeight:700,
+            color: getAIKey() ? "var(--teal)" : "#FF5252" }}>
+          <span style={{ width:6, height:6, borderRadius:"50%", background: getAIKey() ? "var(--teal)" : "#FF5252", display:"inline-block" }} />
+          {getAIKey() ? "AI Active" : "Set up AI →"}
+        </div>
+      )}
+
       {screen === "auth" && (
         <AuthScreen
           onLogin={handleLogin}
