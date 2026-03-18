@@ -2482,7 +2482,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
   const [chapterData,  setChapterData]  = useState(null);
   const [feedback,     setFeedback]     = useState("");
   const [feedbackSaved, setFeedbackSaved] = useState(false);
-  const [status,       setStatus]       = useState("pending");
+  const [status,       setStatus]       = useState("reviewed");
   const [aiLoading,    setAiLoading]    = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState("");
   const [view,         setView]         = useState("overview");
@@ -2527,7 +2527,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
     list.forEach(s => {
       const fb = (profile.reviewStatus && profile.reviewStatus[s.studentName]) || {};
       Object.entries(fb).forEach(([chNum, st]) => {
-        if (st && st !== "pending") keys.add(s.studentName + "_" + parseInt(chNum));
+        if (st && st !== "pending") keys.add(s.studentName + "_" + parseInt(chNum)); // "reviewed","approved","minor","major" all count
       });
     });
     return keys;
@@ -2597,11 +2597,21 @@ function SupervisorDashboard({ supervisor, onBack }) {
         if (res && res.value) {
           const saved = JSON.parse(res.value);
           setFeedback(saved.feedback || "");
-          setStatus(saved.status || "pending");
+          setStatus(saved.status && saved.status !== "pending" ? saved.status : "reviewed");
           setSectionComments(saved.sectionComments || {});
           setHighlights(saved.highlights || {});
         } else {
-          setFeedback(""); setStatus("pending");
+          setFeedback(""); setStatus("reviewed");
+          // Mark as opened/reviewed immediately
+          const rKey = activeStudent.name + "_" + parseInt(activeChapter);
+          setReviewedKeys(prev => { const next = new Set(prev); next.add(rKey); return next; });
+          setStudents(prev => prev.map(s => {
+            if (s.name !== activeStudent.name) return s;
+            const chNum = parseInt(activeChapter);
+            const curStatus = s.feedbackStatus && s.feedbackStatus[chNum];
+            if (curStatus && curStatus !== "pending") return s;
+            return { ...s, feedbackStatus: { ...(s.feedbackStatus || {}), [chNum]: "reviewed" } };
+          }));
         }
         setFeedbackSaved(false);
         setAiSuggestion("");
@@ -2633,7 +2643,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
     setReviewedKeys(prev => { const next = new Set(prev); next.add(reviewKey); return next; });
     setStudents(prev => prev.map(s => {
       if (s.name !== activeStudent.name) return s;
-      return { ...s, feedbackStatus: { ...(s.feedbackStatus || {}), [chNum]: status || "reviewed" } };
+      return { ...s, feedbackStatus: { ...(s.feedbackStatus || {}), [chNum]: (status === "pending") ? "reviewed" : (status || "reviewed") } };
     }));
     setFeedbackSaved(true);
     setTimeout(() => setFeedbackSaved(false), 2500);
@@ -2650,7 +2660,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
       prof.feedback[activeStudent.name][chNum] = payload;
       if (!prof.reviewStatus) prof.reviewStatus = {};
       if (!prof.reviewStatus[activeStudent.name]) prof.reviewStatus[activeStudent.name] = {};
-      prof.reviewStatus[activeStudent.name][chNum] = status || "reviewed";
+      // Only write "pending" if student resubmitted and supervisor hasn't changed status yet
+      prof.reviewStatus[activeStudent.name][chNum] = (status === "pending") ? "reviewed" : (status || "reviewed");
       SUP_CACHE[supervisor.codeKey] = prof;
       safeSet(supervisor.codeKey, JSON.stringify(prof)); // fire-and-forget
 
