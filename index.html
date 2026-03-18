@@ -690,15 +690,7 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
             const isActive = (project.completed || 0) === i;
             return (
               <div key={ch.num} className="fu" style={{ animationDelay: (i * 0.06) + "s" }} onClick={() => {
-                  // Mark feedback as read whenever student opens a chapter
-                  if (chapterFeedback[ch.num] && !readFeedback[ch.num]) {
-                    const updated = { ...readFeedback, [ch.num]: true };
-                    setReadFeedback(updated);
-                    try {
-                      const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
-                      localStorage.setItem("pjt_" + readKey, JSON.stringify(updated));
-                    } catch(e) {}
-                  }
+                  // Don't mark feedback read just from opening chapter — only from viewing feedback
                   onSelect(ch);
                 }}>
                 <div
@@ -716,24 +708,31 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                     <div style={{ marginTop:8, display:"flex", gap:7, flexWrap:"wrap" }}>
                       <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.05)", borderRadius:5, padding:"2px 7px" }}>{ch.sections.length} sections</span>
                       {isSubmitted && !chapterFeedback[ch.num] && <span style={{ fontSize:10, color:"#4CAF50", background:"rgba(76,175,80,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>✓ Submitted</span>}
-                      {isSubmitted && chapterFeedback[ch.num] && !readFeedback[ch.num] && (
-                        <span style={{ fontSize:10, color:"#FFC107", background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
-                          💬 New feedback
-                        </span>
-                      )}
-                      {isSubmitted && chapterFeedback[ch.num] && readFeedback[ch.num] && chapterFeedback[ch.num].status !== "pending" && (
-                        <span style={{ fontSize:10, color: chStatusColor[chapterFeedback[ch.num].status], background:"rgba(255,255,255,0.04)", border:"1px solid " + chStatusColor[chapterFeedback[ch.num].status] + "44", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
-                          {chStatusLabel[chapterFeedback[ch.num].status]}
-                        </span>
-                      )}
-                      {isSubmitted && chapterFeedback[ch.num] && readFeedback[ch.num] && chapterFeedback[ch.num].status === "pending" && (
-                        <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.04)", borderRadius:5, padding:"2px 7px" }}>Feedback read</span>
-                      )}
+                      {(() => {
+                        const fb = chapterFeedback[ch.num];
+                        if (!isSubmitted || !fb) return null;
+                        const fbTs = fb.savedAt || fb.resubmittedAt || "";
+                        const lastRead = readFeedback[ch.num];
+                        const isUnread = !lastRead || (fbTs && lastRead !== fbTs);
+                        const wasReviewed = fb.status && fb.status !== "pending";
+                        if (wasReviewed && isUnread) return (
+                          <span style={{ fontSize:10, color:"#FFC107", background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
+                            💬 New feedback
+                          </span>
+                        );
+                        if (wasReviewed && !isUnread) return (
+                          <span style={{ fontSize:10, color: chStatusColor[fb.status], background:"rgba(255,255,255,0.04)", border:"1px solid " + chStatusColor[fb.status] + "44", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
+                            {chStatusLabel[fb.status]}
+                          </span>
+                        );
+                        return null;
+                      })()}
                       {isSubmitted && (
                         <span
                           onClick={e => {
                             e.stopPropagation();
-                            const updated = { ...readFeedback, [ch.num]: true };
+                            const fbTs = chapterFeedback[ch.num] && (chapterFeedback[ch.num].savedAt || chapterFeedback[ch.num].resubmittedAt || "viewed");
+                            const updated = { ...readFeedback, [ch.num]: fbTs };
                             setReadFeedback(updated);
                             try {
                               const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
@@ -750,7 +749,8 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                           onClick={e => {
                             e.stopPropagation();
                             // Mark feedback as read when student clicks Revise & Resubmit
-                            const updated = { ...readFeedback, [ch.num]: true };
+                            const fbTs2 = chapterFeedback[ch.num] && (chapterFeedback[ch.num].savedAt || chapterFeedback[ch.num].resubmittedAt || "viewed");
+                            const updated = { ...readFeedback, [ch.num]: fbTs2 };
                             setReadFeedback(updated);
                             try {
                               const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
@@ -2433,12 +2433,13 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
   const [feedback,        setFeedback]        = useState({});
   const [readFeedback,    setReadFeedback]     = useState(() => {
     // Initialise synchronously so badge is correct on first render
+    // Stores { [chNum]: "savedAt_timestamp" } so new reviews show as unread
     try {
       const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
       const stored = localStorage.getItem("pjt_" + readKey);
       return stored ? JSON.parse(stored) : {};
     } catch(e) { return {}; }
-  });  // { [chNum]: true } — chapters whose feedback has been viewed
+  });  // { [chNum]: savedAt_string } — tracks which version of feedback was last seen
   const [loadingFeedback, setLoadingFeedback] = useState(true);
   const [tipIdx,          setTipIdx]          = useState(0);
 
@@ -2485,7 +2486,20 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
   const pct            = Math.round((submittedCount / 5) * 100);
   const totalWords     = Object.values(allDrafts).reduce((tot, chDraft) =>
     tot + Object.values(chDraft || {}).join(" ").split(/\s+/).filter(Boolean).length, 0);
-  const hasFeedback    = submittedNums.filter(n => feedback[n] && feedback[n].status !== "pending" && !readFeedback[n]);  // only unread, exclude pending-reset entries
+  // A chapter has unread feedback if:
+  // supervisor reviewed it (status not pending OR has been reviewed before with minor/major)
+  // AND the student hasn't seen this version yet (readFeedback[n] !== feedback[n].savedAt)
+  const hasFeedback = submittedNums.filter(n => {
+    const fb = feedback[n];
+    if (!fb) return false;
+    // Show notification if supervisor has actually reviewed (not first-time pending)
+    const wasReviewed = fb.status && fb.status !== "pending";
+    if (!wasReviewed) return false;
+    // Unread = never read, OR savedAt timestamp changed since last read
+    const lastReadAt = readFeedback[n];
+    const fbSavedAt = fb.savedAt || fb.resubmittedAt || "";
+    return !lastReadAt || (fbSavedAt && lastReadAt !== fbSavedAt);
+  });
   const nextChapter    = CHAPTERS.find(ch => !submitted[ch.num]) || null;
   const firstName      = (project.studentName || "").split(" ")[0];
 
@@ -2570,7 +2584,8 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
                 return (
                   <div key={n} onClick={() => {
                       // Mark this feedback as read
-                      const updated = { ...readFeedback, [n]: true };
+                      const fbSavedAt = feedback[n] && (feedback[n].savedAt || feedback[n].resubmittedAt || "viewed");
+                      const updated = { ...readFeedback, [n]: fbSavedAt };
                       setReadFeedback(updated);
                       try {
                         const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
@@ -4923,16 +4938,8 @@ function App() {
           project={project}
           allDrafts={allDrafts}
           onGoToChapter={ch => {
-              // Mark feedback as read when student navigates to write/revise a chapter
-              try {
-                const readKey = "read_fb_" + (project.studentName || "").trim().toLowerCase().replace(/\s+/g,"_");
-                const stored = localStorage.getItem("pjt_" + readKey);
-                const current = stored ? JSON.parse(stored) : {};
-                if (!current[ch.num]) {
-                  current[ch.num] = true;
-                  localStorage.setItem("pjt_" + readKey, JSON.stringify(current));
-                }
-              } catch(e) {}
+              // Don't mark feedback as read just from opening writing screen
+              // Feedback only clears when student views it via View feedback or Revise & Resubmit
               setChapter(ch); setScreen("writing");
             }}
           onGoToChapters={() => setScreen("chapters")}
