@@ -990,9 +990,32 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
     if (answered.length === 0) return;
     setQBuilding(true);
     try {
-      const sys = sysBase + " You convert student answers into polished academic prose for Nigerian university final-year projects. Write in third person, formal academic English. Do not add information the student did not provide.";
+      const sys = sysBase + " You convert student answers into polished academic prose for Nigerian university final-year projects. Write in third person, formal academic English. Do not add information the student did not provide. Always respect the required paragraph count exactly.";
       const pairs = questions.map((q, i) => "Q: " + q + "\nA: " + (qAnswers[i] || "(not answered)")).join("\n\n");
-      const prompt = "Convert these question-answer pairs into polished academic paragraphs for section \"" + sec.name + "\" (Chapter " + chapter.num + ") of a project on: \"" + project.topic + "\"\n\n" + pairs + "\n\nWrite flowing academic prose. Each answered question becomes one paragraph. Skip unanswered questions. Use formal Nigerian academic writing style. Output only the paragraphs, no headings or labels.";
+      const answeredCount = questions.filter((_, i) => (qAnswers[i] || "").trim().length > 10).length;
+      // Parse min required paragraphs from sec.par e.g. "3-4 paragraphs" → 3, "2 paragraphs" → 2
+      const parMatch = sec.par.match(/(\d+)/);
+      const minRequired = parMatch ? parseInt(parMatch[1]) : 2;
+      const answeredCount = questions.filter((_, i) => (qAnswers[i] || "").trim().length > 10).length;
+      const stillNeeded = Math.max(0, minRequired - answeredCount);
+
+      if (stillNeeded > 0) {
+        // Not enough answers — tell the student how many more they need
+        setQBuilding(false);
+        alert("Please answer at least " + minRequired + " question" + (minRequired > 1 ? "s" : "") + " before building your draft.\n\nYou have answered " + answeredCount + " so far. You need " + stillNeeded + " more.");
+        return;
+      }
+
+      const prompt = "Convert these question-answer pairs into polished academic paragraphs for section \"" + sec.name + "\" (Chapter " + chapter.num + ") of a project on: \"" + project.topic + "\"\n\n" +
+        "REQUIRED LENGTH: " + sec.par + " (mandatory — write exactly this many paragraphs).\n" +
+        "If the student has answered more questions than required, merge related answers into fewer paragraphs.\n\n" +
+        pairs + "\n\n" +
+        "Rules:\n" +
+        "1. Write exactly " + sec.par + " — no more, no fewer\n" +
+        "2. Each paragraph must be 4-6 sentences of formal academic prose\n" +
+        "3. Use third person throughout\n" +
+        "4. Do not add facts or claims the student did not mention\n" +
+        "5. Output only the paragraphs — no headings, labels, or numbering";
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       // Insert into editor
       if (editorRef.current) {
