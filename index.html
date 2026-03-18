@@ -401,7 +401,9 @@ const AI_KEY_STORAGE    = "pjt_groq_key";
 const AI_KEY_REMOTE_DOC = "pjt_config_aikey"; // Firestore document key
 
 function getAIKey() {
-  // Fast path: localStorage cache (always up to date after first load)
+  // In-memory first (set by loadAIKeyFromFirebase on startup)
+  if (window._aiKey) return window._aiKey;
+  // Fall back to localStorage
   try { return localStorage.getItem(AI_KEY_STORAGE) || ""; } catch(e) { return ""; }
 }
 
@@ -411,18 +413,21 @@ async function loadAIKeyFromFirebase() {
     const res = await safeGet(AI_KEY_REMOTE_DOC);
     if (res && res.value) {
       try { localStorage.setItem(AI_KEY_STORAGE, res.value); } catch(e) {}
+      window._aiKey = res.value; // global in-memory cache
       return res.value;
     }
   } catch(e) {}
-  return getAIKey();
+  // Fall back to localStorage
+  const local = getAIKey();
+  if (local) window._aiKey = local;
+  return local;
 }
 
 async function saveAIKey(key) {
   const trimmed = key.trim();
-  // Save to localStorage immediately (instant on this device)
+  window._aiKey = trimmed; // instant in-memory update
   try { localStorage.setItem(AI_KEY_STORAGE, trimmed); } catch(e) {}
-  // Save to Firebase (syncs to all other devices)
-  await safeSet(AI_KEY_REMOTE_DOC, trimmed);
+  await safeSet(AI_KEY_REMOTE_DOC, trimmed); // sync to Firebase
 }
 
 // ── callAI using Groq (free tier, works directly from browser) ──────────────
@@ -3726,10 +3731,13 @@ function App() {
   const [savedProject, setSavedProject] = useState(null);
   const [studentEmail,  setStudentEmail]  = useState(null);
   const [showKeyModal,  setShowKeyModal]  = useState(false);
-  const [pendingAIAction, setPendingAIAction] = useState(null); // callback to retry after key saved
+  const [pendingAIAction, setPendingAIAction] = useState(null);
+  const [aiKeyReady,    setAiKeyReady]    = useState(false); // true once Firebase key check done
 
   // ── Expose a global handler so AI calls can trigger the key modal ─────────
+  // Only show modal if Firebase key check is complete and still no key found
   window._onNoAIKey = (retryFn) => {
+    if (!aiKeyReady) return; // Firebase hasn't responded yet — don't interrupt
     setPendingAIAction(() => retryFn || null);
     setShowKeyModal(true);
   };
@@ -3739,6 +3747,7 @@ function App() {
     const load = async () => {
       // Load AI key from Firebase so all devices have it automatically
       await loadAIKeyFromFirebase();
+      setAiKeyReady(true); // key is now in memory — safe to show AI buttons
       // Always start from the login/sign up page — no auto session restore
       setScreen("auth");
     };
@@ -4010,7 +4019,7 @@ function App() {
       )}
 
       {/* ── Floating AI key status pill (bottom-right) ── */}
-      {screen !== "auth" && (
+      {screen !== "auth" && aiKeyReady && (
         <div
           onClick={() => setShowKeyModal(true)}
           title={getAIKey() ? "AI active — click to update key" : "AI not configured — click to set up"}
