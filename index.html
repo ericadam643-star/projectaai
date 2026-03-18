@@ -992,7 +992,6 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
     try {
       const sys = sysBase + " You convert student answers into polished academic prose for Nigerian university final-year projects. Write in third person, formal academic English. Do not add information the student did not provide. Always respect the required paragraph count exactly.";
       const pairs = questions.map((q, i) => "Q: " + q + "\nA: " + (qAnswers[i] || "(not answered)")).join("\n\n");
-      const answeredCount = questions.filter((_, i) => (qAnswers[i] || "").trim().length > 10).length;
       // Parse min required paragraphs from sec.par e.g. "3-4 paragraphs" → 3, "2 paragraphs" → 2
       const parMatch = sec.par.match(/(\d+)/);
       const minRequired = parMatch ? parseInt(parMatch[1]) : 2;
