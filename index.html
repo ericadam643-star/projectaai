@@ -395,48 +395,12 @@ function makeCode() {
   return c.slice(0,3) + "-" + c.slice(3);
 }
 
-// ── AI key helpers — stored in Firebase + localStorage cache ────────────────
-// Key is saved once and synced to all devices via Firestore.
-const AI_KEY_STORAGE    = "pjt_groq_key";
-const AI_KEY_REMOTE_DOC = "pjt_config_aikey"; // Firestore document key
-
-function getAIKey() {
-  // In-memory first (set by loadAIKeyFromFirebase on startup)
-  if (window._aiKey) return window._aiKey;
-  // Fall back to localStorage
-  try { return localStorage.getItem(AI_KEY_STORAGE) || ""; } catch(e) { return ""; }
-}
-
-async function loadAIKeyFromFirebase() {
-  // Pull key from Firestore on app start — syncs across all devices
-  try {
-    const res = await safeGet(AI_KEY_REMOTE_DOC);
-    if (res && res.value) {
-      try { localStorage.setItem(AI_KEY_STORAGE, res.value); } catch(e) {}
-      window._aiKey = res.value; // global in-memory cache
-      return res.value;
-    }
-  } catch(e) {}
-  // Fall back to localStorage
-  const local = getAIKey();
-  if (local) window._aiKey = local;
-  return local;
-}
-
-async function saveAIKey(key) {
-  const trimmed = key.trim();
-  window._aiKey = trimmed; // instant in-memory update
-  try { localStorage.setItem(AI_KEY_STORAGE, trimmed); } catch(e) {}
-  await safeSet(AI_KEY_REMOTE_DOC, trimmed); // sync to Firebase
-}
+// ── Groq API key — hardcoded by app owner, invisible to users ───────────────
+const GROQ_API_KEY = "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";
 
 // ── callAI using Groq (free tier, works directly from browser) ──────────────
 async function callAI(messages, systemPrompt) {
-  const key = getAIKey();
-  if (!key) {
-    if (window._onNoAIKey) window._onNoAIKey(null);
-    throw new Error("NO_KEY");
-  }
+  const key = GROQ_API_KEY;
 
   const payload = {
     model: "llama-3.3-70b-versatile",
@@ -974,7 +938,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       }
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setAiResponse(resp);
-    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("AI error: " + e.message); } }
+    } catch(e) { setAiResponse("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -985,7 +949,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
       const resp = await callAI([{ role:"user", content:q }], sys);
       setAiResponse(resp);
-    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("AI error: " + e.message); } }
+    } catch(e) { setAiResponse("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -996,7 +960,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Format this source in " + citeSrc.style + " style. Author(s): " + citeSrc.author + ". Year: " + citeSrc.year + ". Title: " + citeSrc.title + ". Journal/Publisher: " + (citeSrc.journal || "not provided") + ". Output only the formatted reference list entry.";
       const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
       setCiteResult(resp.trim());
-    } catch(e) { if (e.message === "NO_KEY") { setCiteResult(""); } else { setCiteResult("AI error: " + e.message); } }
+    } catch(e) { setCiteResult("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -1008,7 +972,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Here is the full Chapter " + chapter.num + " draft:\n\n" + allText + "\n\nProvide structured feedback:\n\nOverall Assessment (2-3 sentences)\n\nWhat is strong (2-3 points)\n\nWhat needs improvement (2-3 actionable points)\n\nMissing content\n\nBefore submitting to supervisor (1-2 critical fixes)\n\nBe specific and grounded in the topic: " + project.topic;
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setFeedback(resp);
-    } catch(e) { if (e.message === "NO_KEY") {} else { setFeedback("Error: " + e.message); } }
+    } catch(e) { setFeedback("Error: " + e.message); } }
     setFeedbackLoading(false);
   };
 
@@ -2806,7 +2770,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const prompt = "Supervisor reviewed Chapter " + activeChapter + " with these notes:\n\n" + parts.join("\n") + "\n\nProvide a response with these exact sections:\n\nCORRECTIONS NEEDED\n(bullet each specific correction)\n\nSUPERVISOR EXPECTATIONS\n(bullet what is expected in the revision)\n\nENCOURAGEMENT\n(two encouraging sentences)\n\nUnder 350 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setAiSummary(result);
-    } catch(e) { if (e.message === "NO_KEY") { setAiSummary(""); } else { setAiSummary("AI error: " + e.message); } }
+    } catch(e) { setAiSummary("AI error: " + e.message); } }
     setSummaryLoading(false);
   };
 
@@ -2858,7 +2822,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const text = await callAI([{ role:"user", content:prompt }], sys);
       setAiSuggestion(text);
       setFeedback(text);
-    } catch(e) { if (e.message === "NO_KEY") { setAiSuggestion(""); } else { setAiSuggestion("AI error: " + e.message); } }
+    } catch(e) { setAiSuggestion("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -3669,55 +3633,6 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
 
 // ── API Key Modal Component ───────────────────────────────────────────────
-function AIKeyModal({ onSave, onCancel, isRequired }) {
-  const [key, setKey] = React.useState(getAIKey());
-  const [error, setError] = React.useState("");
-
-
-  const handleSave = () => {
-    const trimmed = key.trim();
-    if (!trimmed.startsWith("gsk_")) {
-      setError("Groq keys start with \"gsk_\" — copy it exactly from console.groq.com");
-      return;
-    }
-    saveAIKey(trimmed); // fires async save to Firebase in background
-    onSave(trimmed);
-  };
-
-  return (
-    <div className="ai-key-modal-overlay" onClick={isRequired ? undefined : onCancel}>
-      <div className="ai-key-modal" onClick={e => e.stopPropagation()}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-          <span style={{ fontSize:22 }}>🔑</span>
-          <h3>Activate AI Features</h3>
-        </div>
-        <p>
-          Projecta uses Groq AI for writing guidance, feedback, and chapter review.
-          It is completely free — no billing or card required. Just sign in with Google.
-          Your key is stored only on this device and never shared.
-          <br/><br/>
-          Get your free key at <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" style={{ color:"var(--teal)" }}>console.groq.com</a>
-        </p>
-        <input
-          className="ai-key-input"
-          type="password"
-          placeholder="gsk_..."
-          value={key}
-          onChange={e => { setKey(e.target.value); setError(""); }}
-          onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
-          autoFocus
-        />
-        {error && <div style={{ fontSize:12, color:"#FF5252", marginBottom:12, lineHeight:1.5 }}>⚠ {error}</div>}
-        <button className="ai-key-save-btn" onClick={handleSave} disabled={!key.trim()}>
-          Save & Activate AI
-        </button>
-        {!isRequired && (
-          <button className="ai-key-cancel" onClick={onCancel}>Cancel</button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function App() {
   const [role,        setRole]        = useState(null);  // null | "student" | "supervisor"
@@ -3730,24 +3645,11 @@ function App() {
   const [viewChapterFeedback, setViewChapterFeedback] = useState(null);
   const [savedProject, setSavedProject] = useState(null);
   const [studentEmail,  setStudentEmail]  = useState(null);
-  const [showKeyModal,  setShowKeyModal]  = useState(false);
-  const [pendingAIAction, setPendingAIAction] = useState(null);
-  const [aiKeyReady,    setAiKeyReady]    = useState(false); // true once Firebase key check done
 
-  // ── Expose a global handler so AI calls can trigger the key modal ─────────
-  // Only show modal if Firebase key check is complete and still no key found
-  window._onNoAIKey = (retryFn) => {
-    if (!aiKeyReady) return; // Firebase hasn't responded yet — don't interrupt
-    setPendingAIAction(() => retryFn || null);
-    setShowKeyModal(true);
-  };
 
   // ── Load everything from storage on first mount ──────────────────────────
   useEffect(() => {
     const load = async () => {
-      // Load AI key from Firebase so all devices have it automatically
-      await loadAIKeyFromFirebase();
-      setAiKeyReady(true); // key is now in memory — safe to show AI buttons
       // Always start from the login/sign up page — no auto session restore
       setScreen("auth");
     };
@@ -4005,34 +3907,7 @@ function App() {
     <>
       <style>{STYLES}</style>
 
-      {/* ── API Key Modal ── */}
-      {showKeyModal && (
-        <AIKeyModal
-          isRequired={!getAIKey()}
-          onSave={(key) => {
-            saveAIKey(key);
-            setShowKeyModal(false);
-            if (pendingAIAction) { pendingAIAction(); setPendingAIAction(null); }
-          }}
-          onCancel={() => { setShowKeyModal(false); setPendingAIAction(null); }}
-        />
-      )}
 
-      {/* ── Floating AI key status pill (bottom-right) ── */}
-      {screen !== "auth" && aiKeyReady && (
-        <div
-          onClick={() => setShowKeyModal(true)}
-          title={getAIKey() ? "AI active — click to update key" : "AI not configured — click to set up"}
-          style={{ position:"fixed", bottom:16, right:16, zIndex:500, cursor:"pointer",
-            display:"flex", alignItems:"center", gap:6,
-            background: getAIKey() ? "rgba(0,201,167,0.1)" : "rgba(255,82,82,0.1)",
-            border: "1px solid " + (getAIKey() ? "rgba(0,201,167,0.3)" : "rgba(255,82,82,0.35)"),
-            borderRadius:20, padding:"5px 12px", fontSize:11, fontFamily:"var(--font-d)", fontWeight:700,
-            color: getAIKey() ? "var(--teal)" : "#FF5252" }}>
-          <span style={{ width:6, height:6, borderRadius:"50%", background: getAIKey() ? "var(--teal)" : "#FF5252", display:"inline-block" }} />
-          {getAIKey() ? "AI Active" : "Set up AI →"}
-        </div>
-      )}
 
       {screen === "auth" && (
         <AuthScreen
