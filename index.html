@@ -2765,15 +2765,28 @@ function SupervisorDashboard({ supervisor, onBack }) {
         const sKey = activeStudent.name.trim().toLowerCase().replace(/\s+/g,"_");
         const fbKey = supervisor.codeKey + "_fb_" + sKey + "_ch" + activeChapter;
         const res = await safeGet(fbKey);
+        // Reset all state first
+        setFeedbackSaved(false);
+        setAiSuggestion("");
+        setAiSummary(""); setShowSummary(false);
+        setSectionComments({});
+        setHighlights({});
+        setFeedback(""); setStatus("reviewed");
+
         if (res && res.value) {
           const saved = JSON.parse(res.value);
-          setFeedback(saved.feedback || "");
-          setStatus(saved.status && saved.status !== "pending" ? saved.status : "reviewed");
-          setSectionComments(saved.sectionComments || {});
-          setHighlights(saved.highlights || {});
+          // If this is a fresh resubmission (status pending + resubmitVersion set),
+          // keep everything blank — supervisor reviews from scratch
+          const isFreshResubmit = saved.status === "pending" && saved.resubmitVersion;
+          if (!isFreshResubmit) {
+            setFeedback(saved.feedback || "");
+            setStatus(saved.status && saved.status !== "pending" ? saved.status : "reviewed");
+            setSectionComments(saved.sectionComments || {});
+            setHighlights(saved.highlights || {});
+          }
+          // If it's a fresh resubmit, show the revision badge but clear the panel
         } else {
-          setFeedback(""); setStatus("reviewed");
-          // Mark as opened/reviewed immediately
+          // No feedback yet — mark as opened/reviewed
           const rKey = activeStudent.name + "_" + parseInt(activeChapter);
           setReviewedKeys(prev => { const next = new Set(prev); next.add(rKey); return next; });
           setStudents(prev => prev.map(s => {
@@ -2784,11 +2797,6 @@ function SupervisorDashboard({ supervisor, onBack }) {
             return { ...s, feedbackStatus: { ...(s.feedbackStatus || {}), [chNum]: "reviewed" } };
           }));
         }
-        setFeedbackSaved(false);
-        setAiSuggestion("");
-        setAiSummary(""); setShowSummary(false);
-        setSectionComments({});
-        setHighlights({});
         // Always load from storage first — it has the latest resubmission
         // The _sub_ key is overwritten on every submission/resubmission
         const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + activeChapter;
@@ -4718,30 +4726,36 @@ function App() {
           await safeSet(p.supervisorCodeKey, JSON.stringify(loadedProf));
         } catch(e) {}
       }
-      // On resubmit: write a dedicated resubmit flag and reset feedback status
+      // On resubmit: completely clear old feedback so supervisor reviews fresh
       if (version > 1) {
         const fbKey = p.supervisorCodeKey + "_fb_" + sKey + "_ch" + num;
         const resubFlagKey = p.supervisorCodeKey + "_resub_" + sKey + "_ch" + num;
+
+        // Write resubmit flag (supervisor UI uses this to show "Revision vN" badge)
         const resubFlag = { version, resubmittedAt: new Date().toISOString(), studentName: p.studentName };
-        // Write resubmit flag to shared storage — supervisor reads this
-        safeSet(resubFlagKey, JSON.stringify(resubFlag));
-        // Also reset the feedback status to pending in shared storage
-        const oldFb = await safeGet(fbKey);
-        if (oldFb && oldFb.value) {
-          try {
-            const oldFbParsed = JSON.parse(oldFb.value);
-            oldFbParsed.archivedStatus = oldFbParsed.archivedStatus || oldFbParsed.status;
-            oldFbParsed.status = "pending";
-            oldFbParsed.resubmittedAt = resubFlag.resubmittedAt;
-            oldFbParsed.resubmitVersion = version;
-            await safeSet(fbKey, JSON.stringify(oldFbParsed));
-            if (prof && prof.feedback && prof.feedback[p.studentName] && prof.feedback[p.studentName][num]) {
-              prof.feedback[p.studentName][num] = oldFbParsed;
-            }
-            if (prof && prof.reviewStatus && prof.reviewStatus[p.studentName]) {
-              prof.reviewStatus[p.studentName][num] = "pending";
-            }
-          } catch(e) {}
+        await safeSet(resubFlagKey, JSON.stringify(resubFlag));
+
+        // Completely replace old feedback with a clean slate
+        // Supervisor will see new draft with no previous comments
+        const freshFb = {
+          status: "pending",
+          feedback: "",
+          sectionComments: {},
+          highlights: {},
+          resubmitVersion: version,
+          resubmittedAt: resubFlag.resubmittedAt,
+          supervisorName: prof ? prof.name : ""
+        };
+        await safeSet(fbKey, JSON.stringify(freshFb));
+
+        // Clear from in-memory cache too
+        if (prof) {
+          if (!prof.feedback) prof.feedback = {};
+          if (!prof.feedback[p.studentName]) prof.feedback[p.studentName] = {};
+          prof.feedback[p.studentName][num] = freshFb;
+          if (!prof.reviewStatus) prof.reviewStatus = {};
+          if (!prof.reviewStatus[p.studentName]) prof.reviewStatus[p.studentName] = {};
+          prof.reviewStatus[p.studentName][num] = "pending";
         }
       }
       // Re-persist the whole profile with submissions
