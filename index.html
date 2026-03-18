@@ -2789,16 +2789,31 @@ function SupervisorDashboard({ supervisor, onBack }) {
         setAiSummary(""); setShowSummary(false);
         setSectionComments({});
         setHighlights({});
-        // Check inline submissions first
-        const cachedProf = SUP_CACHE[supervisor.codeKey];
-        const inlineSub = cachedProf && cachedProf.submissions && cachedProf.submissions[activeStudent.name] && cachedProf.submissions[activeStudent.name][activeChapter];
-        if (inlineSub) {
-          setChapterData(inlineSub);
-        } else {
-          const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + activeChapter;
+        // Always load from storage first — it has the latest resubmission
+        // The _sub_ key is overwritten on every submission/resubmission
+        const subKey = supervisor.codeKey + "_sub_" + sKey + "_ch" + activeChapter;
+        let latestSub = null;
+        try {
           const sub = await safeGet(subKey);
-          setChapterData(sub && sub.value ? JSON.parse(sub.value) : null);
+          if (sub && sub.value) latestSub = JSON.parse(sub.value);
+        } catch(e) {}
+        // Fall back to inline cache only if storage has nothing
+        if (!latestSub) {
+          const cachedProf = SUP_CACHE[supervisor.codeKey];
+          latestSub = cachedProf && cachedProf.submissions &&
+            cachedProf.submissions[activeStudent.name] &&
+            cachedProf.submissions[activeStudent.name][activeChapter] || null;
         }
+        // Update the cache with the latest so it stays consistent
+        if (latestSub) {
+          const cachedProf = SUP_CACHE[supervisor.codeKey];
+          if (cachedProf) {
+            if (!cachedProf.submissions) cachedProf.submissions = {};
+            if (!cachedProf.submissions[activeStudent.name]) cachedProf.submissions[activeStudent.name] = {};
+            cachedProf.submissions[activeStudent.name][activeChapter] = latestSub;
+          }
+        }
+        setChapterData(latestSub);
       } catch(e) {}
     };
     load();
@@ -4682,10 +4697,27 @@ function App() {
         }
         console.log("Chapter written to cache:", p.supervisorCodeKey, p.studentName, "ch" + num, "v" + version);
       }
-      // Also persist to storage as backup
+      // Always persist submission to its own key (latest resubmission overwrites old)
       const sKey = p.studentName.trim().toLowerCase().replace(/\s+/g,"_");
       const subKey = p.supervisorCodeKey + "_sub_" + sKey + "_ch" + num;
-      safeSet(subKey, JSON.stringify(subPayload));
+      await safeSet(subKey, JSON.stringify(subPayload));
+      // Also ensure the profile doc in Firestore is updated even if prof was null
+      if (!prof) {
+        // No cache — load profile, update it, save it
+        try {
+          const profRes = await safeGet(p.supervisorCodeKey);
+          const loadedProf = profRes && profRes.value ? JSON.parse(profRes.value) : { students:[], submissions:{} };
+          if (!loadedProf.submissions) loadedProf.submissions = {};
+          if (!loadedProf.submissions[p.studentName]) loadedProf.submissions[p.studentName] = {};
+          loadedProf.submissions[p.studentName][num] = subPayload;
+          if (version > 1) {
+            if (loadedProf.reviewStatus && loadedProf.reviewStatus[p.studentName]) {
+              delete loadedProf.reviewStatus[p.studentName][num];
+            }
+          }
+          await safeSet(p.supervisorCodeKey, JSON.stringify(loadedProf));
+        } catch(e) {}
+      }
       // On resubmit: write a dedicated resubmit flag and reset feedback status
       if (version > 1) {
         const fbKey = p.supervisorCodeKey + "_fb_" + sKey + "_ch" + num;
