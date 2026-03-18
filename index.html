@@ -413,16 +413,8 @@ async function callAI(messages, systemPrompt) {
   }
 
   const isNetlify = window.location.hostname.includes("netlify.app") || window.location.hostname.includes("netlify.com");
-  const isHosted   = window.location.protocol === "https:" || isNetlify;
-
-  // When served over HTTPS or Netlify, call Anthropic directly (CORS is allowed)
-  // When running as a local file, route through a CORS proxy
   const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-  const url = isNetlify
-    ? "/.netlify/functions/ai"
-    : isHosted
-      ? ANTHROPIC_URL
-      : "https://corsproxy.io/?" + encodeURIComponent(ANTHROPIC_URL);
+  const url = isNetlify ? "/.netlify/functions/ai" : ANTHROPIC_URL;
 
   const headers = {
     "Content-Type": "application/json",
@@ -432,14 +424,18 @@ async function callAI(messages, systemPrompt) {
   };
   const bodyObj = { model:"claude-sonnet-4-20250514", max_tokens:1000, system:systemPrompt, messages };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(bodyObj),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "API error " + res.status);
-  return data.content.map(b => b.text || "").join("");
+  try {
+    const res = await fetch(url, { method:"POST", headers, body:JSON.stringify(bodyObj) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || "API error " + res.status);
+    return data.content.map(b => b.text || "").join("");
+  } catch(e) {
+    // Detect CORS / network errors (TypeError = blocked before reaching server)
+    if (e instanceof TypeError || e.message.includes("Failed to fetch") || e.message.includes("NetworkError")) {
+      throw new Error("CORS_ERROR");
+    }
+    throw e;
+  }
 }
 
 function buildDownload(project, chapter, drafts) {
@@ -955,7 +951,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       }
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setAiResponse(resp);
-    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else if (e.message === "CORS_ERROR") { setAiResponse("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiResponse("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -966,7 +962,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
       const resp = await callAI([{ role:"user", content:q }], sys);
       setAiResponse(resp);
-    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else if (e.message === "CORS_ERROR") { setAiResponse("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiResponse("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -977,7 +973,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Format this source in " + citeSrc.style + " style. Author(s): " + citeSrc.author + ". Year: " + citeSrc.year + ". Title: " + citeSrc.title + ". Journal/Publisher: " + (citeSrc.journal || "not provided") + ". Output only the formatted reference list entry.";
       const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
       setCiteResult(resp.trim());
-    } catch(e) { if (e.message === "NO_KEY") { setCiteResult(""); } else { setCiteResult("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setCiteResult(""); } else if (e.message === "CORS_ERROR") { setCiteResult("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setCiteResult("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -2787,7 +2783,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const prompt = "Supervisor reviewed Chapter " + activeChapter + " with these notes:\n\n" + parts.join("\n") + "\n\nProvide a response with these exact sections:\n\nCORRECTIONS NEEDED\n(bullet each specific correction)\n\nSUPERVISOR EXPECTATIONS\n(bullet what is expected in the revision)\n\nENCOURAGEMENT\n(two encouraging sentences)\n\nUnder 350 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setAiSummary(result);
-    } catch(e) { if (e.message === "NO_KEY") { setAiSummary(""); } else { setAiSummary("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiSummary(""); } else if (e.message === "CORS_ERROR") { setAiSummary("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiSummary("Error: " + e.message); } }
     setSummaryLoading(false);
   };
 
@@ -2839,7 +2835,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const text = await callAI([{ role:"user", content:prompt }], sys);
       setAiSuggestion(text);
       setFeedback(text);
-    } catch(e) { if (e.message === "NO_KEY") { setAiSuggestion(""); } else { setAiSuggestion("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiSuggestion(""); } else if (e.message === "CORS_ERROR") { setAiSuggestion("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiSuggestion("Error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -3653,37 +3649,16 @@ function SupervisorDashboard({ supervisor, onBack }) {
 function AIKeyModal({ onSave, onCancel, isRequired }) {
   const [key, setKey] = React.useState(getAIKey());
   const [error, setError] = React.useState("");
-  const [testing, setTesting] = React.useState(false);
 
-  const handleSave = async () => {
+
+  const handleSave = () => {
     const trimmed = key.trim();
     if (!trimmed.startsWith("sk-ant-")) {
-      setError("Key should start with sk-ant-  —  check and try again.");
+      setError("Key should start with \"sk-ant-\" — copy it exactly from console.anthropic.com");
       return;
     }
-    setTesting(true); setError("");
-    // Quick test call
-    try {
-      saveAIKey(trimmed);
-      const isHosted = window.location.protocol === "https:";
-      const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-      const testUrl = isHosted ? ANTHROPIC_URL : "https://corsproxy.io/?" + encodeURIComponent(ANTHROPIC_URL);
-      const res = await fetch(testUrl, {
-        method: "POST",
-        headers: { "Content-Type":"application/json", "x-api-key":trimmed, "anthropic-version":"2023-06-01", "anthropic-dangerous-allow-browser":"true" },
-        body: JSON.stringify({ model:"claude-haiku-20240307", max_tokens:10, messages:[{ role:"user", content:"Hi" }] })
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        setError(d.error?.message || "Invalid key — please check and try again.");
-        saveAIKey(""); setTesting(false); return;
-      }
-      setTesting(false);
-      onSave(trimmed);
-    } catch(e) {
-      setError("Connection error. Check your internet and try again.");
-      setTesting(false);
-    }
+    saveAIKey(trimmed);
+    onSave(trimmed);
   };
 
   return (
@@ -3710,8 +3685,8 @@ function AIKeyModal({ onSave, onCancel, isRequired }) {
           autoFocus
         />
         {error && <div style={{ fontSize:12, color:"#FF5252", marginBottom:12, lineHeight:1.5 }}>⚠ {error}</div>}
-        <button className="ai-key-save-btn" onClick={handleSave} disabled={testing || !key.trim()}>
-          {testing ? "Verifying key..." : "Save & Activate AI"}
+        <button className="ai-key-save-btn" onClick={handleSave} disabled={!key.trim()}>
+          Save & Activate AI
         </button>
         {!isRequired && (
           <button className="ai-key-cancel" onClick={onCancel}>Cancel</button>
@@ -4012,6 +3987,20 @@ function App() {
           }}
           onCancel={() => { setShowKeyModal(false); setPendingAIAction(null); }}
         />
+      )}
+
+      {/* ── File:// protocol warning banner ── */}
+      {window.location.protocol === "file:" && screen !== "auth" && (
+        <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:999, background:"#7C3AED", padding:"10px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:16 }}>⚡</span>
+            <span style={{ fontSize:12, color:"#fff", fontFamily:"var(--font-d)", fontWeight:600 }}>
+              AI features need a local server to work. Run: <code style={{ background:"rgba(0,0,0,0.3)", padding:"2px 8px", borderRadius:4, fontFamily:"monospace" }}>npx serve .</code> then open <code style={{ background:"rgba(0,0,0,0.3)", padding:"2px 8px", borderRadius:4, fontFamily:"monospace" }}>localhost:3000</code>
+            </span>
+          </div>
+          <a href="https://github.com/vercel/serve#readme" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize:11, color:"rgba(255,255,255,0.7)", textDecoration:"none", flexShrink:0 }}>How to serve →</a>
+        </div>
       )}
 
       {/* ── Floating AI key status pill (bottom-right) ── */}
