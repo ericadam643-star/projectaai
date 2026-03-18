@@ -395,14 +395,34 @@ function makeCode() {
   return c.slice(0,3) + "-" + c.slice(3);
 }
 
-// ── API key helpers (Gemini) ────────────────────────────────────────────────
-const AI_KEY_STORAGE = "pjt_groq_key";
+// ── AI key helpers — stored in Firebase + localStorage cache ────────────────
+// Key is saved once and synced to all devices via Firestore.
+const AI_KEY_STORAGE    = "pjt_groq_key";
+const AI_KEY_REMOTE_DOC = "pjt_config_aikey"; // Firestore document key
 
 function getAIKey() {
+  // Fast path: localStorage cache (always up to date after first load)
   try { return localStorage.getItem(AI_KEY_STORAGE) || ""; } catch(e) { return ""; }
 }
-function saveAIKey(key) {
-  try { localStorage.setItem(AI_KEY_STORAGE, key.trim()); } catch(e) {}
+
+async function loadAIKeyFromFirebase() {
+  // Pull key from Firestore on app start — syncs across all devices
+  try {
+    const res = await safeGet(AI_KEY_REMOTE_DOC);
+    if (res && res.value) {
+      try { localStorage.setItem(AI_KEY_STORAGE, res.value); } catch(e) {}
+      return res.value;
+    }
+  } catch(e) {}
+  return getAIKey();
+}
+
+async function saveAIKey(key) {
+  const trimmed = key.trim();
+  // Save to localStorage immediately (instant on this device)
+  try { localStorage.setItem(AI_KEY_STORAGE, trimmed); } catch(e) {}
+  // Save to Firebase (syncs to all other devices)
+  await safeSet(AI_KEY_REMOTE_DOC, trimmed);
 }
 
 // ── callAI using Groq (free tier, works directly from browser) ──────────────
@@ -3655,7 +3675,7 @@ function AIKeyModal({ onSave, onCancel, isRequired }) {
       setError("Groq keys start with \"gsk_\" — copy it exactly from console.groq.com");
       return;
     }
-    saveAIKey(trimmed);
+    saveAIKey(trimmed); // fires async save to Firebase in background
     onSave(trimmed);
   };
 
@@ -3717,6 +3737,8 @@ function App() {
   // ── Load everything from storage on first mount ──────────────────────────
   useEffect(() => {
     const load = async () => {
+      // Load AI key from Firebase so all devices have it automatically
+      await loadAIKeyFromFirebase();
       // Always start from the login/sign up page — no auto session restore
       setScreen("auth");
     };
