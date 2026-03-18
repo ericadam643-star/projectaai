@@ -1922,6 +1922,9 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
           if (lsRole) {
             const saved = JSON.parse(lsRole);
             if (saved.account && saved.account.email === key) acc = saved.account;
+            if (!acc && saved.role === "institution" && saved.institution) {
+              acc = Object.assign({ role:"institution" }, saved.institution, { dept: saved.institution.position });
+            }
             if (!acc && saved.role === "supervisor" && saved.supervisor && saved.supervisor.email === key) {
               acc = Object.assign({ role:"supervisor" }, saved.supervisor);
             }
@@ -2154,10 +2157,10 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
         {/* Role toggle (signup only) */}
         {mode === "signup" && (
           <div style={{ display:"flex", gap:10, marginBottom:20 }}>
-            {["student","supervisor"].map(r => (
+            {["student","supervisor","institution"].map(r => (
               <button key={r} onClick={() => setRole(r)}
-                style={{ flex:1, background: role===r ? "rgba(0,201,167,0.1)" : "rgba(255,255,255,0.03)", border: role===r ? "1px solid rgba(0,201,167,0.45)" : "1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"11px 0", color: role===r ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", transition:"all 0.2s" }}>
-                {r === "student" ? "👨‍🎓 Student" : "🎓 Supervisor"}
+                style={{ flex:1, background: role===r ? "rgba(0,201,167,0.1)" : "rgba(255,255,255,0.03)", border: role===r ? "1px solid rgba(0,201,167,0.45)" : "1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"11px 0", color: role===r ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", transition:"all 0.2s" }}>
+                {r === "student" ? "👨‍🎓 Student" : r === "supervisor" ? "🎓 Supervisor" : "🏫 Institution"}
               </button>
             ))}
           </div>
@@ -2166,6 +2169,18 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
         {/* Sign-up fields */}
         {mode === "signup" && (
           <>
+            {role === "institution" && (
+              <div style={{ marginBottom:14 }}>
+                <label style={lbl}>Institution Name</label>
+                <input style={inp} placeholder="e.g. Baze University, Abuja" value={uni} onChange={e => setUni(e.target.value)} />
+              </div>
+            )}
+            {role === "institution" && (
+              <div style={{ marginBottom:14 }}>
+                <label style={lbl}>Your Position</label>
+                <input style={inp} placeholder="e.g. Registrar, Academic Director, HOD" value={dept} onChange={e => setDept(e.target.value)} />
+              </div>
+            )}
             {role === "supervisor" && (
               <div style={{ marginBottom:14 }}>
                 <label style={lbl}>Academic Title</label>
@@ -4130,8 +4145,386 @@ function ResourcesScreen({ project, onBack }) {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+//  INSTITUTION DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function InstitutionDashboard({ institution, onSignOut }) {
+  const [students,    setStudents]    = React.useState([]);
+  const [supervisors, setSupervisors] = React.useState([]);
+  const [loading,     setLoading]     = React.useState(true);
+  const [refreshing,  setRefreshing]  = React.useState(false);
+  const [activeTab,   setActiveTab]   = React.useState("overview");
+  const [search,      setSearch]      = React.useState("");
+  const [aiInsight,   setAiInsight]   = React.useState("");
+  const [insightLoading, setInsightLoading] = React.useState(false);
+  const [selectedDept,   setSelectedDept]   = React.useState("All");
+
+  React.useEffect(() => { loadData(false); }, []);
+
+  const loadData = async (isRefresh) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      // Load all supervisor profiles to aggregate student data
+      const allStudents = [];
+      const allSupervisors = [];
+      // Scan known supervisor codes from localStorage
+      const keys = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("pjt_sup_code_")) keys.push(k.replace("pjt_",""));
+        }
+      } catch(e) {}
+      // Also try Firestore if available
+      for (const key of keys) {
+        try {
+          const r = await safeGet(key);
+          if (r && r.value) {
+            const prof = JSON.parse(r.value);
+            if (prof.uni && prof.uni.toLowerCase().includes((institution.uni||"").toLowerCase().split(" ")[0].toLowerCase())) {
+              allSupervisors.push({ ...prof, codeKey: key });
+              (prof.students || []).forEach(s => {
+                const submitted = prof.submissions && prof.submissions[s.studentName] ? Object.keys(prof.submissions[s.studentName]).length : 0;
+                const reviewStatus = prof.reviewStatus && prof.reviewStatus[s.studentName] ? prof.reviewStatus[s.studentName] : {};
+                const reviewed = Object.values(reviewStatus).filter(st => st && st !== "pending").length;
+                allStudents.push({
+                  name: s.studentName, topic: s.topic, dept: s.dept, uni: s.uni,
+                  email: s.email || "", supervisorName: prof.name || prof.title + " " + prof.name,
+                  submitted, reviewed, total: 5,
+                  pct: Math.round((submitted / 5) * 100),
+                  status: submitted === 5 ? "complete" : submitted > 0 ? "in_progress" : "not_started"
+                });
+              });
+            }
+          }
+        } catch(e) {}
+      }
+      setStudents(allStudents);
+      setSupervisors(allSupervisors);
+    } catch(e) {}
+    setLoading(false); setRefreshing(false);
+  };
+
+  const generateInsight = async () => {
+    setInsightLoading(true); setAiInsight("");
+    const total = students.length;
+    const complete = students.filter(s => s.status === "complete").length;
+    const inProgress = students.filter(s => s.status === "in_progress").length;
+    const notStarted = students.filter(s => s.status === "not_started").length;
+    const deptBreakdown = {};
+    students.forEach(s => { deptBreakdown[s.dept] = (deptBreakdown[s.dept] || 0) + 1; });
+    const sys = "You are an academic data analyst providing insights to a Nigerian university administrator. Be concise, specific and actionable.";
+    const prompt = "Analyse this university final-year project data and provide 3 specific, actionable insights for the institution:\n\n" +
+      "University: " + institution.uni + "\n" +
+      "Total students on platform: " + total + "\n" +
+      "Completed all chapters: " + complete + " (" + Math.round(complete/total*100||0) + "%)\n" +
+      "In progress: " + inProgress + "\n" +
+      "Not started: " + notStarted + "\n" +
+      "Department breakdown: " + JSON.stringify(deptBreakdown) + "\n" +
+      "Supervisors active: " + supervisors.length + "\n\n" +
+      "Give 3 short actionable insights under these headings: KEY RISK / STRONG PERFORMANCE / RECOMMENDED ACTION. Under 200 words total.";
+    try {
+      const resp = await callAI([{ role:"user", content:prompt }], sys);
+      setAiInsight(resp);
+    } catch(e) { setAiInsight("Error generating insight: " + e.message); }
+    setInsightLoading(false);
+  };
+
+  // Derived stats
+  const total       = students.length;
+  const complete    = students.filter(s => s.status === "complete").length;
+  const inProgress  = students.filter(s => s.status === "in_progress").length;
+  const notStarted  = students.filter(s => s.status === "not_started").length;
+  const avgProgress = total > 0 ? Math.round(students.reduce((a,s) => a + s.pct, 0) / total) : 0;
+  const depts       = ["All", ...Array.from(new Set(students.map(s => s.dept).filter(Boolean)))];
+  const filtered    = students.filter(s =>
+    (selectedDept === "All" || s.dept === selectedDept) &&
+    (search === "" || s.name.toLowerCase().includes(search.toLowerCase()) || s.topic.toLowerCase().includes(search.toLowerCase()))
+  );
+  const atRisk = students.filter(s => s.status === "not_started" || (s.submitted < 2));
+  const tabStyle = (id) => ({
+    padding:"9px 16px", background: activeTab===id ? "var(--teal)" : "transparent",
+    color: activeTab===id ? "var(--navy)" : "var(--grey3)",
+    border: "1px solid " + (activeTab===id ? "var(--teal)" : "rgba(255,255,255,0.08)"),
+    borderRadius:8, fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", transition:"all 0.2s", whiteSpace:"nowrap"
+  });
+  const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"18px 20px" };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", fontFamily:"var(--font-b)", display:"flex", flexDirection:"column" }}>
+
+      {/* Nav */}
+      <div className="rp-nav">
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <ProjectaIcon size={30} />
+          <div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>
+              🏫 {institution.uni || "Institution"}
+            </div>
+            <div style={{ fontSize:10, color:"var(--grey3)" }}>{institution.name} · {institution.position}</div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button onClick={() => loadData(true)} disabled={refreshing}
+            style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 12px", color: refreshing ? "var(--grey3)" : "var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+            {refreshing ? "↻ Refreshing..." : "↻ Refresh"}
+          </button>
+          <button onClick={onSignOut}
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ width:36, height:36, border:"3px solid rgba(0,201,167,0.2)", borderTop:"3px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 14px" }} />
+            <div style={{ fontSize:13, color:"var(--grey3)" }}>Loading institution data...</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ flex:1, overflowY:"auto" }}>
+          <div className="rp-container" style={{ padding:"24px 18px" }}>
+
+            {/* Tabs */}
+            <div style={{ display:"flex", gap:8, marginBottom:24, overflowX:"auto", paddingBottom:4 }}>
+              {[
+                { id:"overview",   label:"📊 Overview" },
+                { id:"students",   label:"👨‍🎓 Students" },
+                { id:"supervisors",label:"🎓 Supervisors" },
+                { id:"risk",       label:"⚠ At Risk" },
+              ].map(t => <button key={t.id} style={tabStyle(t.id)} onClick={() => setActiveTab(t.id)}>{t.label}</button>)}
+            </div>
+
+            {/* ── OVERVIEW TAB ──────────────────────────────────── */}
+            {activeTab === "overview" && (
+              <div className="fu">
+
+                {/* Stat cards */}
+                <div className="rp-grid-2" style={{ marginBottom:16 }}>
+                  {[
+                    { label:"Total Students",    val:total,       icon:"👨‍🎓", color:"var(--teal)" },
+                    { label:"Avg. Progress",     val:avgProgress+"%", icon:"📈", color:"#FFC107" },
+                    { label:"Chapters Complete", val:complete,    icon:"✅", color:"#4CAF50" },
+                    { label:"At Risk",           val:atRisk.length, icon:"⚠", color:"#FF7043" },
+                  ].map((s,i) => (
+                    <div key={i} style={{ ...card, display:"flex", alignItems:"center", gap:14 }}>
+                      <div style={{ width:44, height:44, borderRadius:12, background:"rgba(255,255,255,0.05)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{s.icon}</div>
+                      <div>
+                        <div style={{ fontFamily:"var(--font-d)", fontSize:22, fontWeight:900, color:s.color, lineHeight:1 }}>{s.val}</div>
+                        <div style={{ fontSize:11, color:"var(--grey3)", marginTop:3 }}>{s.label}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Progress breakdown */}
+                <div style={{ ...card, marginBottom:16 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Project Completion Status</div>
+                  {total === 0 ? (
+                    <div style={{ fontSize:13, color:"var(--grey3)", fontStyle:"italic" }}>No students registered yet. Share Projecta with your supervisors to get started.</div>
+                  ) : (
+                    <div>
+                      {[
+                        { label:"Completed (all 5 chapters)", count:complete, color:"#4CAF50", pct:complete/total*100 },
+                        { label:"In Progress",                count:inProgress, color:"var(--teal)", pct:inProgress/total*100 },
+                        { label:"Not Started",                count:notStarted, color:"#FF7043", pct:notStarted/total*100 },
+                      ].map((r,i) => (
+                        <div key={i} style={{ marginBottom:12 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                            <span style={{ fontSize:12, color:"var(--grey2)" }}>{r.label}</span>
+                            <span style={{ fontSize:12, fontWeight:700, color:r.color }}>{r.count} ({Math.round(r.pct)}%)</span>
+                          </div>
+                          <div style={{ height:6, background:"rgba(255,255,255,0.06)", borderRadius:3, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:r.pct+"%", background:r.color, borderRadius:3, transition:"width 0.8s ease" }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Department breakdown */}
+                {depts.length > 2 && (
+                  <div style={{ ...card, marginBottom:16 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Students by Department</div>
+                    {depts.filter(d => d !== "All").map((dept,i) => {
+                      const count = students.filter(s => s.dept === dept).length;
+                      const pct = total > 0 ? count/total*100 : 0;
+                      const done = students.filter(s => s.dept === dept && s.status === "complete").length;
+                      return (
+                        <div key={i} style={{ marginBottom:12 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                            <span style={{ fontSize:12, color:"var(--grey2)" }}>{dept}</span>
+                            <span style={{ fontSize:11, color:"var(--grey3)" }}>{count} students · {done} complete</span>
+                          </div>
+                          <div style={{ height:5, background:"rgba(255,255,255,0.06)", borderRadius:3, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:pct+"%", background:"var(--teal)", borderRadius:3 }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* AI Insights */}
+                <div style={{ ...card }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.08em" }}>✦ AI Institutional Insights</div>
+                    <button onClick={generateInsight} disabled={insightLoading || total === 0}
+                      style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"5px 14px", color:"var(--teal)", fontSize:11, fontFamily:"var(--font-d)", fontWeight:700, cursor:"pointer" }}>
+                      {insightLoading ? "Analysing..." : aiInsight ? "Regenerate" : "Generate Insights"}
+                    </button>
+                  </div>
+                  {insightLoading && <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>Analysing your institution data...</div>}
+                  {aiInsight && !insightLoading && <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.85, whiteSpace:"pre-wrap" }}>{aiInsight}</div>}
+                  {!aiInsight && !insightLoading && <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>Click Generate Insights for an AI analysis of your institution data.</div>}
+                </div>
+
+              </div>
+            )}
+
+            {/* ── STUDENTS TAB ──────────────────────────────────── */}
+            {activeTab === "students" && (
+              <div className="fu">
+                {/* Filters */}
+                <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or topic..."
+                    style={{ flex:1, minWidth:200, background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:9, padding:"10px 14px", color:"var(--white)", fontSize:13, fontFamily:"var(--font-b)", outline:"none" }}
+                    onFocus={e => e.target.style.borderColor="rgba(0,201,167,0.4)"}
+                    onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"} />
+                  <select value={selectedDept} onChange={e => setSelectedDept(e.target.value)}
+                    style={{ background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:9, padding:"10px 14px", color:"var(--white)", fontSize:13, fontFamily:"var(--font-b)", outline:"none", cursor:"pointer" }}>
+                    {depts.map(d => <option key={d} value={d} style={{ background:"#1A2E42" }}>{d}</option>)}
+                  </select>
+                </div>
+                <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:12 }}>{filtered.length} student{filtered.length !== 1 ? "s" : ""}</div>
+                {filtered.length === 0 ? (
+                  <div style={{ ...card, textAlign:"center", padding:"40px 20px" }}>
+                    <div style={{ fontSize:32, marginBottom:12 }}>👨‍🎓</div>
+                    <div style={{ fontFamily:"var(--font-d)", fontSize:14, color:"var(--white)", marginBottom:8 }}>No students found</div>
+                    <div style={{ fontSize:12, color:"var(--grey3)" }}>Students appear here once they connect to a supervisor at your institution.</div>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {filtered.map((s,i) => {
+                      const statusColor = s.status==="complete" ? "#4CAF50" : s.status==="in_progress" ? "var(--teal)" : "#FF7043";
+                      const statusLabel = s.status==="complete" ? "Complete" : s.status==="in_progress" ? "In Progress" : "Not Started";
+                      return (
+                        <div key={i} style={{ ...card }}>
+                          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:10 }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:3 }}>{s.name}</div>
+                              <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:4, lineHeight:1.5 }}>{s.topic}</div>
+                              <div style={{ fontSize:10, color:"var(--grey3)" }}>{s.dept} · Supervisor: {s.supervisorName}</div>
+                            </div>
+                            <span style={{ fontSize:10, fontWeight:700, color:statusColor, background:statusColor+"22", borderRadius:20, padding:"3px 10px", flexShrink:0, border:"1px solid "+statusColor+"44" }}>{statusLabel}</span>
+                          </div>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            <div style={{ flex:1, height:5, background:"rgba(255,255,255,0.06)", borderRadius:3, overflow:"hidden" }}>
+                              <div style={{ height:"100%", width:s.pct+"%", background:statusColor, borderRadius:3, transition:"width 0.6s" }} />
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:700, color:statusColor, flexShrink:0 }}>{s.pct}%</span>
+                            <span style={{ fontSize:10, color:"var(--grey3)", flexShrink:0 }}>{s.submitted}/5 chapters</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SUPERVISORS TAB ───────────────────────────────── */}
+            {activeTab === "supervisors" && (
+              <div className="fu">
+                <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:16 }}>{supervisors.length} supervisor{supervisors.length !== 1 ? "s" : ""} found at {institution.uni}</div>
+                {supervisors.length === 0 ? (
+                  <div style={{ ...card, textAlign:"center", padding:"40px 20px" }}>
+                    <div style={{ fontSize:32, marginBottom:12 }}>🎓</div>
+                    <div style={{ fontFamily:"var(--font-d)", fontSize:14, color:"var(--white)", marginBottom:8 }}>No supervisors found</div>
+                    <div style={{ fontSize:12, color:"var(--grey3)" }}>Supervisors appear here once they sign up and students connect to them.</div>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {supervisors.map((sup,i) => {
+                      const supStudents = students.filter(s => s.supervisorName === sup.name || s.supervisorName === (sup.title + " " + sup.name));
+                      const supComplete = supStudents.filter(s => s.status === "complete").length;
+                      const supAvg = supStudents.length > 0 ? Math.round(supStudents.reduce((a,s) => a+s.pct,0)/supStudents.length) : 0;
+                      return (
+                        <div key={i} style={{ ...card }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+                            <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:700, fontSize:16, color:"var(--teal)", flexShrink:0 }}>
+                              {(sup.name||"S").charAt(0)}
+                            </div>
+                            <div>
+                              <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>{sup.title ? sup.title+" " : ""}{sup.name}</div>
+                              <div style={{ fontSize:11, color:"var(--grey3)" }}>{sup.dept} · Code: {sup.code}</div>
+                            </div>
+                          </div>
+                          <div className="rp-grid-3">
+                            {[
+                              { label:"Students", val:supStudents.length },
+                              { label:"Avg Progress", val:supAvg+"%" },
+                              { label:"Completed", val:supComplete },
+                            ].map((m,j) => (
+                              <div key={j} style={{ background:"rgba(255,255,255,0.03)", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
+                                <div style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:800, color:"var(--teal)" }}>{m.val}</div>
+                                <div style={{ fontSize:10, color:"var(--grey3)", marginTop:3 }}>{m.label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── AT RISK TAB ───────────────────────────────────── */}
+            {activeTab === "risk" && (
+              <div className="fu">
+                <div style={{ background:"rgba(255,112,67,0.06)", border:"1px solid rgba(255,112,67,0.2)", borderRadius:12, padding:"14px 16px", marginBottom:16 }}>
+                  <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"#FF7043", marginBottom:4 }}>⚠ At-Risk Students</div>
+                  <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>Students who have not started or submitted fewer than 2 chapters. Early intervention can prevent project failure.</div>
+                </div>
+                {atRisk.length === 0 ? (
+                  <div style={{ ...card, textAlign:"center", padding:"40px 20px" }}>
+                    <div style={{ fontSize:32, marginBottom:12 }}>✅</div>
+                    <div style={{ fontFamily:"var(--font-d)", fontSize:14, color:"#4CAF50" }}>No at-risk students</div>
+                    <div style={{ fontSize:12, color:"var(--grey3)", marginTop:8 }}>All students are making progress.</div>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {atRisk.map((s,i) => (
+                      <div key={i} style={{ background:"rgba(255,112,67,0.04)", border:"1px solid rgba(255,112,67,0.2)", borderRadius:12, padding:"16px 18px" }}>
+                        <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:4 }}>{s.name}</div>
+                        <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:8, lineHeight:1.5 }}>{s.topic}</div>
+                        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                          <span style={{ fontSize:10, color:"#FF7043", background:"rgba(255,112,67,0.1)", borderRadius:20, padding:"3px 10px", fontWeight:600 }}>{s.submitted} of 5 chapters submitted</span>
+                          <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.04)", borderRadius:20, padding:"3px 10px" }}>{s.dept}</span>
+                          <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.04)", borderRadius:20, padding:"3px 10px" }}>Supervisor: {s.supervisorName}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function App() {
-  const [role,        setRole]        = useState(null);  // null | "student" | "supervisor"
+  const [role,        setRole]        = useState(null);  // null | "student" | "supervisor" | "institution"
+  const [institution, setInstitution] = useState(null);
   const [supervisor,  setSupervisor]  = useState(null);
   const [screen,      setScreen]      = useState("loading");
   const [project,     setProject]     = useState(null);
@@ -4363,6 +4756,11 @@ function App() {
       }
       await safeSet(ROLE_KEY, JSON.stringify({ role:"supervisor", supervisor:{ name:acc.name, dept:acc.dept, uni:acc.uni, code:acc.code, codeKey:acc.codeKey, email:acc.email, title:acc.title } }));
       setScreen("supervisor_dashboard");
+    } else if (acc.role === "institution") {
+      const inst = { name: acc.name, uni: acc.uni, position: acc.dept || "Administrator", email: acc.email };
+      setInstitution(inst);
+      await safeSet(ROLE_KEY, JSON.stringify({ role:"institution", institution: inst }));
+      setScreen("institution_dashboard");
     } else {
       // Student — load their saved project
       const res = await safeGet(STORAGE_KEY + "_" + acc.email);
@@ -4383,6 +4781,12 @@ function App() {
   const handleSupervisorSignOut = () => {
     setRole(null);
     setSupervisor(null);
+    setScreen("auth");
+  };
+
+  const handleInstitutionSignOut = async () => {
+    await safeDel(ROLE_KEY);
+    setRole(null); setInstitution(null);
     setScreen("auth");
   };
 
@@ -4416,6 +4820,9 @@ function App() {
       )}
       {screen === "supervisor_dashboard" && supervisor && (
         <SupervisorDashboard supervisor={supervisor} onBack={handleSupervisorSignOut} />
+      )}
+      {screen === "institution_dashboard" && institution && (
+        <InstitutionDashboard institution={institution} onSignOut={handleInstitutionSignOut} />
       )}
       {screen === "setup" && (
         <SetupScreen
