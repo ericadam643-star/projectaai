@@ -425,7 +425,7 @@ async function callAI(messages, systemPrompt) {
   return data.choices?.[0]?.message?.content || "";
 }
 
-function buildDownload(project, chapter, drafts) {
+function buildDownload(project, chapter, drafts, format) {
   const today = new Date().toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" });
   const wordCount = Object.values(drafts).join(" ").split(/\s+/).filter(Boolean).length;
 
@@ -479,13 +479,30 @@ function buildDownload(project, chapter, drafts) {
     "<span>" + wordCount + " words</span>" +
     "</div></div></body></html>";
 
-  const encoded = "data:text/html;charset=utf-8," + encodeURIComponent(html);
-  const a = document.createElement("a");
-  a.href = encoded;
-  a.download = "Projecta_Ch" + chapter.num + "_" + chapter.title.replace(/\s+/g, "_") + ".html";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const fileName = "Projecta_Ch" + chapter.num + "_" + chapter.title.replace(/\s+/g, "_");
+
+  if (format === "pdf") {
+    // Open in new tab — user prints to PDF via browser (Ctrl+P / Share > Print)
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => win.print(), 600);
+    }
+  } else {
+    // Download as .doc (Word-compatible HTML)
+    const mimeType = format === "doc"
+      ? "application/msword"
+      : "text/html";
+    const ext = format === "doc" ? ".doc" : ".html";
+    const encoded = "data:" + mimeType + ";charset=utf-8," + encodeURIComponent(html);
+    const a = document.createElement("a");
+    a.href = encoded;
+    a.download = fileName + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 function WelcomeScreen({ onStart, savedProject, onContinue, onClear, onBack }) {
@@ -1077,7 +1094,10 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
               <div style={{ background:"rgba(0,201,167,0.1)", border:"1px solid rgba(0,201,167,0.28)", borderRadius:7, padding:"7px 11px" }}>
                 <span style={{ fontSize:12, color:"var(--teal)", fontWeight:700 }}>Submitted {submitTime}</span>
               </div>
-              <button onClick={() => buildDownload(project, chapter, drafts)}
+              <button onClick={() => {
+                const fmt = window.confirm("Download as Word document?\nClick OK for Word (.doc)\nClick Cancel for PDF (print)") ? "doc" : "pdf";
+                buildDownload(project, chapter, drafts, fmt);
+              }}
                 style={{ background:"var(--navy2)", color:"var(--grey2)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:7, padding:"7px 13px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}
                 onMouseEnter={e => { e.currentTarget.style.color = "var(--teal)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.4)"; }}
                 onMouseLeave={e => { e.currentTarget.style.color = "var(--grey2)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; }}>
@@ -1756,8 +1776,9 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
   const [fbSummary,     setFbSummary]     = React.useState("");
   const [fbSumLoading,  setFbSumLoading]  = React.useState(false);
   const [showFbSummary, setShowFbSummary] = React.useState(false);
-  const summaryRef    = React.useRef(null);
-  const scrollWrapRef = React.useRef(null);
+  const summaryRef       = React.useRef(null);
+  const scrollWrapRef    = React.useRef(null);
+  const [showDlMenu, setShowDlMenu] = React.useState(false);
 
   const summariseFeedback = async () => {
     setShowFbSummary(true); setFbSumLoading(true); setFbSummary("");
@@ -1834,10 +1855,29 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
                 {fbSumLoading ? "Summarising..." : "✦ Summarise"}
               </button>
             )}
-            <button onClick={onDownload}
-              style={{ flex:1, background:"rgba(0,201,167,0.1)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:8, padding:"8px 10px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer" }}>
-              ⬇ Download
-            </button>
+            <div style={{ flex:1, position:"relative" }}>
+              <button onClick={() => setShowDlMenu(v => !v)}
+                style={{ width:"100%", background:"rgba(0,201,167,0.1)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:8, padding:"8px 10px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer" }}>
+                ⬇ Download ▾
+              </button>
+              {showDlMenu && (
+                <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:10, overflow:"hidden", zIndex:10, boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
+                  {[
+                    { label:"📄 Word (.doc)", fmt:"doc", desc:"Open in Microsoft Word" },
+                    { label:"🖨 PDF (Print)", fmt:"pdf", desc:"Print or save as PDF" },
+                  ].map(opt => (
+                    <button key={opt.fmt}
+                      onClick={() => { onDownload(opt.fmt); setShowDlMenu(false); }}
+                      style={{ width:"100%", background:"transparent", border:"none", borderBottom:"1px solid rgba(255,255,255,0.06)", padding:"11px 14px", cursor:"pointer", textAlign:"left", transition:"background 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.background="rgba(0,201,167,0.08)"}
+                      onMouseLeave={e => e.currentTarget.style.background="transparent"}>
+                      <div style={{ fontFamily:"var(--font-d)", fontSize:12, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{opt.label}</div>
+                      <div style={{ fontSize:10, color:"var(--grey3)" }}>{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -5000,7 +5040,7 @@ function App() {
           drafts={allDrafts[viewChapter.num] || {}}
           supervisorFeedback={viewChapterFeedback}
           onClose={() => { setViewChapter(null); setViewChapterFeedback(null); }}
-          onDownload={() => { buildDownload(project, viewChapter, allDrafts[viewChapter.num] || {}); }}
+          onDownload={(fmt) => { buildDownload(project, viewChapter, allDrafts[viewChapter.num] || {}, fmt); }}
         />
       )}
     </>
