@@ -1761,9 +1761,10 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
 
   const summariseFeedback = async () => {
     setShowFbSummary(true); setFbSumLoading(true); setFbSummary("");
-    // Scroll the modal to top so summary panel (just below header) is visible
+    // Scroll to top of scrollable area so summary appears immediately
     setTimeout(() => {
       if (scrollWrapRef.current) scrollWrapRef.current.scrollTop = 0;
+      if (summaryRef.current) summaryRef.current.scrollIntoView({ behavior:"smooth", block:"nearest" });
     }, 80);
     try {
       const parts = [];
@@ -1788,9 +1789,9 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
         "\n\nSummarise this feedback for me as a student. Use exactly these three headings:\n\nWHAT TO FIX\n(bullet each specific correction I need to make)\n\nWHAT MY SUPERVISOR EXPECTS\n(bullet what a good revision looks like)\n\nENCOURAGEMENT\n(two sentences motivating me to act on this feedback)\n\nBe specific to my actual comments. Under 300 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setFbSummary(result);
-      // Scroll modal to top once content renders so summary is visible
+      // Scroll to summary once AI result renders
       setTimeout(() => {
-        if (scrollWrapRef.current) scrollWrapRef.current.scrollTop = 0;
+        if (summaryRef.current) summaryRef.current.scrollIntoView({ behavior:"smooth", block:"nearest" });
       }, 100);
     } catch(e) { setFbSummary("Error: " + e.message); }
     setFbSumLoading(false);
@@ -1799,10 +1800,10 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
       onClick={onClose}>
-      <div ref={scrollWrapRef} style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:16, width:"100%", maxWidth:620, maxHeight:"90vh", display:"flex", flexDirection:"column" }}
+      <div style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:16, width:"100%", maxWidth:620, maxHeight:"90vh", display:"flex", flexDirection:"column" }}
         onClick={e => e.stopPropagation()}>
 
-        {/* Header */}
+        {/* Header — fixed, never scrolls */}
         <div style={{ padding:"16px 20px", borderBottom:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, flexShrink:0 }}>
           <div>
             <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>
@@ -1836,30 +1837,32 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
           </div>
         </div>
 
-        {/* AI Feedback Summary for student */}
-        {showFbSummary && (
-          <div ref={summaryRef} style={{ margin:"12px 20px 0", background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:12, padding:"14px 16px", flexShrink:0 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase" }}>✦ Feedback Summary — Action Plan</div>
-              <button onClick={() => setShowFbSummary(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:14 }}>✕</button>
+        {/* Single scrollable area — summary + feedback + sections + history */}
+        <div ref={scrollWrapRef} style={{ overflowY:"auto", flex:1, WebkitOverflowScrolling:"touch" }}>
+
+          {/* AI Feedback Summary for student */}
+          {showFbSummary && (
+            <div ref={summaryRef} style={{ margin:"16px 20px 0", background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:12, padding:"14px 16px" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase" }}>✦ Feedback Summary — Action Plan</div>
+                <button onClick={() => setShowFbSummary(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:14 }}>✕</button>
+              </div>
+              {fbSumLoading
+                ? <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>Summarising your supervisor's feedback...</div>
+                : <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.9, whiteSpace:"pre-wrap" }}>{fbSummary}</div>
+              }
             </div>
-            {fbSumLoading
-              ? <div style={{ fontSize:12, color:"var(--grey3)", fontStyle:"italic" }}>Summarising your supervisor's feedback...</div>
-              : <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.9, whiteSpace:"pre-wrap" }}>{fbSummary}</div>
-            }
-          </div>
-        )}
+          )}
 
-        {/* Overall feedback banner */}
-        {hasFeedback && supervisorFeedback.feedback && (
-          <div style={{ margin:"12px 20px 0", background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:10, padding:"12px 14px", flexShrink:0 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Overall feedback from supervisor</div>
-            <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{supervisorFeedback.feedback}</div>
-          </div>
-        )}
+          {/* Overall feedback banner */}
+          {hasFeedback && supervisorFeedback.feedback && (
+            <div style={{ margin:"12px 20px 0", background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:10, padding:"12px 14px" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>Overall feedback from supervisor</div>
+              <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{supervisorFeedback.feedback}</div>
+            </div>
+          )}
 
-        {/* Sections */}
-        <div ref={scrollWrapRef} style={{ overflowY:"auto", padding:"16px 20px 24px" }}>
+          <div style={{ padding:"16px 20px 24px" }}>
           {chapter.sections.map((s, i) => {
             const text = drafts[i] || "";
             const comment = sc[i] || "";
@@ -1906,11 +1909,12 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
               </div>
             );
           })}
-          {/* Revision history for student */}
-          <RevisionHistory
-            project={project}
-            chapterNum={chapter.num}
-          />
+            {/* Revision history for student */}
+            <RevisionHistory
+              project={project}
+              chapterNum={chapter.num}
+            />
+          </div>
         </div>
       </div>
     </div>
