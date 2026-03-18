@@ -1756,9 +1756,15 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
   const [fbSummary,     setFbSummary]     = React.useState("");
   const [fbSumLoading,  setFbSumLoading]  = React.useState(false);
   const [showFbSummary, setShowFbSummary] = React.useState(false);
+  const summaryRef    = React.useRef(null);
+  const scrollWrapRef = React.useRef(null);
 
   const summariseFeedback = async () => {
     setShowFbSummary(true); setFbSumLoading(true); setFbSummary("");
+    // Scroll the modal to top so summary panel (just below header) is visible
+    setTimeout(() => {
+      if (scrollWrapRef.current) scrollWrapRef.current.scrollTop = 0;
+    }, 80);
     try {
       const parts = [];
       // Collect all supervisor comments
@@ -1782,6 +1788,10 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
         "\n\nSummarise this feedback for me as a student. Use exactly these three headings:\n\nWHAT TO FIX\n(bullet each specific correction I need to make)\n\nWHAT MY SUPERVISOR EXPECTS\n(bullet what a good revision looks like)\n\nENCOURAGEMENT\n(two sentences motivating me to act on this feedback)\n\nBe specific to my actual comments. Under 300 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setFbSummary(result);
+      // Scroll modal to top once content renders so summary is visible
+      setTimeout(() => {
+        if (scrollWrapRef.current) scrollWrapRef.current.scrollTop = 0;
+      }, 100);
     } catch(e) { setFbSummary("Error: " + e.message); }
     setFbSumLoading(false);
   };
@@ -1789,7 +1799,7 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
       onClick={onClose}>
-      <div style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:16, width:"100%", maxWidth:620, maxHeight:"90vh", display:"flex", flexDirection:"column" }}
+      <div ref={scrollWrapRef} style={{ background:"var(--navy2)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:16, width:"100%", maxWidth:620, maxHeight:"90vh", display:"flex", flexDirection:"column" }}
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
@@ -1828,7 +1838,7 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
 
         {/* AI Feedback Summary for student */}
         {showFbSummary && (
-          <div style={{ margin:"12px 20px 0", background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:12, padding:"14px 16px", flexShrink:0 }}>
+          <div ref={summaryRef} style={{ margin:"12px 20px 0", background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:12, padding:"14px 16px", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
               <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase" }}>✦ Feedback Summary — Action Plan</div>
               <button onClick={() => setShowFbSummary(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:14 }}>✕</button>
@@ -1849,7 +1859,7 @@ function SubmissionViewer({ project, chapter, drafts, supervisorFeedback, onClos
         )}
 
         {/* Sections */}
-        <div style={{ overflowY:"auto", padding:"16px 20px 24px" }}>
+        <div ref={scrollWrapRef} style={{ overflowY:"auto", padding:"16px 20px 24px" }}>
           {chapter.sections.map((s, i) => {
             const text = drafts[i] || "";
             const comment = sc[i] || "";
