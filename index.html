@@ -2493,6 +2493,9 @@ function SupervisorDashboard({ supervisor, onBack }) {
   const [aiSummary,      setAiSummary]      = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showSummary,    setShowSummary]    = useState(false);
+  const [simLoading,     setSimLoading]     = useState(false);
+  const [simResults,     setSimResults]     = useState(null);
+  const [showSim,        setShowSim]        = useState(false);
 
   // Normalise a name the same way both student and supervisor do
   const normName = (n) => n.trim().toLowerCase().replace(/\s+/g,"_");
@@ -2750,6 +2753,101 @@ function SupervisorDashboard({ supervisor, onBack }) {
     setAiLoading(false);
   };
 
+  // ── Similarity / Plagiarism checker ────────────────────────────────────────
+  const runSimilarityCheck = async () => {
+    if (!chapterData || !chapterData.drafts) return;
+    setSimLoading(true); setSimResults(null); setShowSim(true);
+
+    // Extract all text from drafts
+    const fullText = Object.values(chapterData.drafts).join(" ").replace(/\s+/g, " ").trim();
+    if (fullText.length < 80) {
+      setSimResults({ error: "Not enough text to check. Student needs to write more content." });
+      setSimLoading(false);
+      return;
+    }
+
+    // Extract 5 distinct phrases (20–30 words each) from different parts of the text
+    const extractPhrases = (text) => {
+      const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+      const phrases = [];
+      const step = Math.floor(sentences.length / 5) || 1;
+      for (let i = 0; i < sentences.length && phrases.length < 5; i += step) {
+        const s = sentences[i].trim();
+        if (s.split(/\s+/).length >= 12) {
+          // Take a clean 18–22 word slice
+          const words = s.split(/\s+/);
+          const slice = words.slice(0, Math.min(22, words.length)).join(" ").replace(/^[,;:\-–—]+/, "").trim();
+          if (slice.length > 40) phrases.push(slice);
+        }
+      }
+      // Fallback — slice raw text into chunks if not enough sentences
+      if (phrases.length < 3) {
+        const words = text.split(/\s+/);
+        const chunkSize = 20;
+        const total = Math.floor(words.length / chunkSize);
+        const step2 = Math.max(1, Math.floor(total / 5));
+        for (let i = 0; i < total && phrases.length < 5; i += step2) {
+          phrases.push(words.slice(i * chunkSize, i * chunkSize + chunkSize).join(" "));
+        }
+      }
+      return phrases.slice(0, 5);
+    };
+
+    const phrases = extractPhrases(fullText);
+    const results = [];
+    let flaggedCount = 0;
+
+    for (const phrase of phrases) {
+      try {
+        // DuckDuckGo instant answer API — no key needed
+        const encoded = encodeURIComponent('"' + phrase.slice(0, 120) + '"');
+        const url = "https://api.duckduckgo.com/?q=" + encoded + "&format=json&no_html=1&skip_disambig=1";
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        const matches = [];
+
+        // Check AbstractURL (top result)
+        if (data.AbstractURL && data.AbstractText && data.AbstractText.length > 20) {
+          matches.push({ url: data.AbstractURL, snippet: data.AbstractText.slice(0, 160) + "...", source: data.AbstractSource || "Web" });
+        }
+        // Check RelatedTopics
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+          data.RelatedTopics.slice(0, 2).forEach(t => {
+            if (t.FirstURL && t.Text) {
+              matches.push({ url: t.FirstURL, snippet: t.Text.slice(0, 140) + "...", source: "Related" });
+            }
+          });
+        }
+        // Check Results
+        if (data.Results && data.Results.length > 0) {
+          data.Results.slice(0, 2).forEach(r => {
+            if (r.FirstURL && r.Text) {
+              matches.push({ url: r.FirstURL, snippet: r.Text.slice(0, 140) + "...", source: "Result" });
+            }
+          });
+        }
+
+        const flagged = matches.length > 0;
+        if (flagged) flaggedCount++;
+        results.push({ phrase, matches, flagged });
+      } catch(e) {
+        results.push({ phrase, matches: [], flagged: false, error: "Check failed: " + e.message });
+      }
+    }
+
+    const total = results.length;
+    const score = Math.round((flaggedCount / total) * 100);
+    let verdict, verdictColor, verdictBg;
+    if (score === 0)       { verdict = "Clean"; verdictColor = "#4CAF50"; verdictBg = "rgba(76,175,80,0.08)"; }
+    else if (score <= 40)  { verdict = "Low Similarity"; verdictColor = "#FFC107"; verdictBg = "rgba(255,193,7,0.08)"; }
+    else if (score <= 70)  { verdict = "Moderate Similarity"; verdictColor = "#FF9800"; verdictBg = "rgba(255,152,0,0.08)"; }
+    else                   { verdict = "High Similarity — Review Required"; verdictColor = "#FF5252"; verdictBg = "rgba(255,82,82,0.08)"; }
+
+    setSimResults({ results, flaggedCount, total, score, verdict, verdictColor, verdictBg, checkedAt: new Date().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" }) });
+    setSimLoading(false);
+  };
+
   const statusConfig = {
     pending:  { label:"Pending review",    color:"var(--grey3)",  bg:"rgba(255,255,255,0.06)",  border:"rgba(255,255,255,0.1)" },
     approved: { label:"Approved",          color:"#4CAF50",       bg:"rgba(76,175,80,0.1)",    border:"rgba(76,175,80,0.3)" },
@@ -2828,6 +2926,10 @@ function SupervisorDashboard({ supervisor, onBack }) {
               style={{ background:"rgba(0,201,167,0.08)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"4px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer" }}>
               {aiLoading ? "Generating..." : "✦ AI review"}
             </button>
+            <button onClick={runSimilarityCheck} disabled={simLoading}
+              style={{ background:"rgba(255,82,82,0.08)", color:"#FF5252", border:"1px solid rgba(255,82,82,0.2)", borderRadius:20, padding:"4px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer" }}>
+              {simLoading ? "Checking..." : "🔍 Similarity check"}
+            </button>
           </div>
         </div>
 
@@ -2854,6 +2956,97 @@ function SupervisorDashboard({ supervisor, onBack }) {
             <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:10, padding:"14px 16px", marginBottom:20 }}>
               <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>AI Review Summary</div>
               <div style={{ fontSize:12, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{aiSuggestion}</div>
+            </div>
+          )}
+
+          {/* ── Similarity Check Results Panel ─────────────────────────────── */}
+          {showSim && (
+            <div style={{ background:"rgba(255,82,82,0.04)", border:"1px solid rgba(255,82,82,0.2)", borderRadius:14, padding:"18px 20px", marginBottom:20 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:16 }}>🔍</span>
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FF5252", letterSpacing:"0.08em", textTransform:"uppercase" }}>Similarity Check</div>
+                    {simResults && !simResults.error && (
+                      <div style={{ fontSize:10, color:"var(--grey3)", marginTop:1 }}>Checked at {simResults.checkedAt} · {simResults.total} phrases analysed</div>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => setShowSim(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:16 }}>✕</button>
+              </div>
+
+              {simLoading && (
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {[1,2,3,4,5].map(n => (
+                    <div key={n} style={{ background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:16, height:16, border:"2px solid rgba(255,82,82,0.2)", borderTop:"2px solid #FF5252", borderRadius:"50%", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+                      <div style={{ fontSize:12, color:"var(--grey3)" }}>Searching phrase {n} of 5...</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {simResults && simResults.error && (
+                <div style={{ fontSize:13, color:"var(--grey3)", fontStyle:"italic" }}>{simResults.error}</div>
+              )}
+
+              {simResults && !simResults.error && (
+                <div>
+                  {/* Verdict badge */}
+                  <div style={{ background: simResults.verdictBg, border:"1px solid " + simResults.verdictColor + "44", borderRadius:10, padding:"12px 16px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
+                    <div>
+                      <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:800, color: simResults.verdictColor }}>{simResults.verdict}</div>
+                      <div style={{ fontSize:11, color:"var(--grey3)", marginTop:3 }}>
+                        {simResults.flaggedCount} of {simResults.total} phrases matched online sources
+                      </div>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:900, color: simResults.verdictColor, lineHeight:1 }}>{simResults.score}%</div>
+                      <div style={{ fontSize:9, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.08em" }}>similarity score</div>
+                    </div>
+                  </div>
+
+                  {/* Note about method */}
+                  <div style={{ background:"rgba(255,255,255,0.03)", borderRadius:8, padding:"8px 12px", marginBottom:14, fontSize:10, color:"var(--grey3)", lineHeight:1.6 }}>
+                    ⚠️ This check searches phrases via DuckDuckGo. A match does not always mean plagiarism — it may indicate common academic language or properly cited sources. Use this as a flag for manual review, not a definitive ruling.
+                  </div>
+
+                  {/* Per-phrase results */}
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                    {simResults.results.map((r, i) => (
+                      <div key={i} style={{ background: r.flagged ? "rgba(255,82,82,0.05)" : "rgba(76,175,80,0.04)", border:"1px solid " + (r.flagged ? "rgba(255,82,82,0.2)" : "rgba(76,175,80,0.15)"), borderRadius:10, padding:"12px 14px" }}>
+                        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8, marginBottom: r.flagged ? 10 : 0 }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                              <span style={{ fontSize:10, fontWeight:700, color: r.flagged ? "#FF5252" : "#4CAF50" }}>
+                                {r.flagged ? "⚠ MATCHED" : "✓ CLEAN"}
+                              </span>
+                              <span style={{ fontSize:9, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Phrase {i+1}</span>
+                            </div>
+                            <div style={{ fontSize:11, color:"var(--grey2)", fontStyle:"italic", lineHeight:1.6, borderLeft:"2px solid " + (r.flagged ? "#FF5252" : "#4CAF50") + "44", paddingLeft:8 }}>
+                              "{r.phrase.slice(0, 120)}{r.phrase.length > 120 ? "..." : ""}"
+                            </div>
+                          </div>
+                        </div>
+                        {r.error && <div style={{ fontSize:11, color:"#FF9800", marginTop:4 }}>{r.error}</div>}
+                        {r.flagged && r.matches.length > 0 && (
+                          <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:4 }}>
+                            {r.matches.slice(0, 2).map((m, j) => (
+                              <div key={j} style={{ background:"rgba(255,255,255,0.03)", borderRadius:7, padding:"8px 10px" }}>
+                                <a href={m.url} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize:10, color:"#64B5F6", textDecoration:"none", wordBreak:"break-all", display:"block", marginBottom:3 }}>
+                                  🔗 {m.url.slice(0, 80)}{m.url.length > 80 ? "..." : ""}
+                                </a>
+                                <div style={{ fontSize:10, color:"var(--grey3)", lineHeight:1.5 }}>{m.snippet}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
