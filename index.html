@@ -395,8 +395,8 @@ function makeCode() {
   return c.slice(0,3) + "-" + c.slice(3);
 }
 
-// ── API key helpers ─────────────────────────────────────────────────────────
-const AI_KEY_STORAGE = "pjt_anthropic_key";
+// ── API key helpers (Gemini) ────────────────────────────────────────────────
+const AI_KEY_STORAGE = "pjt_gemini_key";
 
 function getAIKey() {
   try { return localStorage.getItem(AI_KEY_STORAGE) || ""; } catch(e) { return ""; }
@@ -405,6 +405,8 @@ function saveAIKey(key) {
   try { localStorage.setItem(AI_KEY_STORAGE, key.trim()); } catch(e) {}
 }
 
+// ── callAI using Google Gemini (free tier, no billing required) ──────────────
+// Gemini API calls work directly from the browser — no proxy needed.
 async function callAI(messages, systemPrompt) {
   const key = getAIKey();
   if (!key) {
@@ -412,30 +414,31 @@ async function callAI(messages, systemPrompt) {
     throw new Error("NO_KEY");
   }
 
-  const isNetlify = window.location.hostname.includes("netlify.app") || window.location.hostname.includes("netlify.com");
-  const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-  const url = isNetlify ? "/.netlify/functions/ai" : ANTHROPIC_URL;
+  // Convert messages from Anthropic format to Gemini format
+  const geminiMessages = messages.map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }]
+  }));
 
-  const headers = {
-    "Content-Type": "application/json",
-    "x-api-key": key,
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-allow-browser": "true",
-  };
-  const bodyObj = { model:"claude-sonnet-4-20250514", max_tokens:1000, system:systemPrompt, messages };
+  // Prepend system prompt as first user message if provided
+  const contents = systemPrompt
+    ? [{ role:"user", parts:[{ text: systemPrompt }] }, { role:"model", parts:[{ text:"Understood." }] }, ...geminiMessages]
+    : geminiMessages;
 
-  try {
-    const res = await fetch(url, { method:"POST", headers, body:JSON.stringify(bodyObj) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || "API error " + res.status);
-    return data.content.map(b => b.text || "").join("");
-  } catch(e) {
-    // Detect CORS / network errors (TypeError = blocked before reaching server)
-    if (e instanceof TypeError || e.message.includes("Failed to fetch") || e.message.includes("NetworkError")) {
-      throw new Error("CORS_ERROR");
-    }
-    throw e;
-  }
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + key;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents,
+      generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "Gemini API error " + res.status);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
 function buildDownload(project, chapter, drafts) {
@@ -951,7 +954,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       }
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setAiResponse(resp);
-    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else if (e.message === "CORS_ERROR") { setAiResponse("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiResponse("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -962,7 +965,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
       const resp = await callAI([{ role:"user", content:q }], sys);
       setAiResponse(resp);
-    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else if (e.message === "CORS_ERROR") { setAiResponse("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiResponse("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiResponse(""); } else { setAiResponse("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -973,7 +976,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Format this source in " + citeSrc.style + " style. Author(s): " + citeSrc.author + ". Year: " + citeSrc.year + ". Title: " + citeSrc.title + ". Journal/Publisher: " + (citeSrc.journal || "not provided") + ". Output only the formatted reference list entry.";
       const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
       setCiteResult(resp.trim());
-    } catch(e) { if (e.message === "NO_KEY") { setCiteResult(""); } else if (e.message === "CORS_ERROR") { setCiteResult("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setCiteResult("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setCiteResult(""); } else { setCiteResult("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -2783,7 +2786,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const prompt = "Supervisor reviewed Chapter " + activeChapter + " with these notes:\n\n" + parts.join("\n") + "\n\nProvide a response with these exact sections:\n\nCORRECTIONS NEEDED\n(bullet each specific correction)\n\nSUPERVISOR EXPECTATIONS\n(bullet what is expected in the revision)\n\nENCOURAGEMENT\n(two encouraging sentences)\n\nUnder 350 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setAiSummary(result);
-    } catch(e) { if (e.message === "NO_KEY") { setAiSummary(""); } else if (e.message === "CORS_ERROR") { setAiSummary("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiSummary("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiSummary(""); } else { setAiSummary("AI error: " + e.message); } }
     setSummaryLoading(false);
   };
 
@@ -2835,7 +2838,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const text = await callAI([{ role:"user", content:prompt }], sys);
       setAiSuggestion(text);
       setFeedback(text);
-    } catch(e) { if (e.message === "NO_KEY") { setAiSuggestion(""); } else if (e.message === "CORS_ERROR") { setAiSuggestion("⚠ Open this file via a local server (not double-click). Run: npx serve . then open http://localhost:3000"); } else { setAiSuggestion("Error: " + e.message); } }
+    } catch(e) { if (e.message === "NO_KEY") { setAiSuggestion(""); } else { setAiSuggestion("AI error: " + e.message); } }
     setAiLoading(false);
   };
 
@@ -3653,8 +3656,8 @@ function AIKeyModal({ onSave, onCancel, isRequired }) {
 
   const handleSave = () => {
     const trimmed = key.trim();
-    if (!trimmed.startsWith("sk-ant-")) {
-      setError("Key should start with \"sk-ant-\" — copy it exactly from console.anthropic.com");
+    if (!trimmed.startsWith("AIza")) {
+      setError("Gemini keys start with \"AIza\" — copy it exactly from aistudio.google.com");
       return;
     }
     saveAIKey(trimmed);
@@ -3669,16 +3672,16 @@ function AIKeyModal({ onSave, onCancel, isRequired }) {
           <h3>Activate AI Features</h3>
         </div>
         <p>
-          Projecta uses Claude AI for writing guidance, feedback, and chapter review.
-          To activate it, enter your Anthropic API key below. Your key is stored only
-          on this device and never shared.
+          Projecta uses Google Gemini AI for writing guidance, feedback, and chapter review.
+          It is free to use — no billing required. Enter your Gemini API key below.
+          Your key is stored only on this device and never shared.
           <br/><br/>
-          Get a free key at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style={{ color:"var(--teal)" }}>console.anthropic.com</a>
+          Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color:"var(--teal)" }}>aistudio.google.com</a>
         </p>
         <input
           className="ai-key-input"
           type="password"
-          placeholder="sk-ant-api03-..."
+          placeholder="AIzaSy..."
           value={key}
           onChange={e => { setKey(e.target.value); setError(""); }}
           onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
@@ -3987,20 +3990,6 @@ function App() {
           }}
           onCancel={() => { setShowKeyModal(false); setPendingAIAction(null); }}
         />
-      )}
-
-      {/* ── File:// protocol warning banner ── */}
-      {window.location.protocol === "file:" && screen !== "auth" && (
-        <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:999, background:"#7C3AED", padding:"10px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:16 }}>⚡</span>
-            <span style={{ fontSize:12, color:"#fff", fontFamily:"var(--font-d)", fontWeight:600 }}>
-              AI features need a local server to work. Run: <code style={{ background:"rgba(0,0,0,0.3)", padding:"2px 8px", borderRadius:4, fontFamily:"monospace" }}>npx serve .</code> then open <code style={{ background:"rgba(0,0,0,0.3)", padding:"2px 8px", borderRadius:4, fontFamily:"monospace" }}>localhost:3000</code>
-            </span>
-          </div>
-          <a href="https://github.com/vercel/serve#readme" target="_blank" rel="noopener noreferrer"
-            style={{ fontSize:11, color:"rgba(255,255,255,0.7)", textDecoration:"none", flexShrink:0 }}>How to serve →</a>
-        </div>
       )}
 
       {/* ── Floating AI key status pill (bottom-right) ── */}
