@@ -778,6 +778,10 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
   const [activeSection, setActiveSection]     = useState(0);
   const [drafts, setDrafts]                   = useState(initialDrafts || {});
   const [aiPanel, setAiPanel]                 = useState(null);
+  const [questions,     setQuestions]         = useState([]);   // AI-generated questions
+  const [qAnswers,      setQAnswers]          = useState({});   // student answers keyed by index
+  const [qLoading,      setQLoading]          = useState(false);
+  const [qBuilding,     setQBuilding]         = useState(false);// building draft from answers
   const [aiLoading, setAiLoading]             = useState(false);
   const [aiResponse, setAiResponse]           = useState("");
   const [chatInput, setChatInput]             = useState("");
@@ -940,6 +944,52 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       setAiResponse(resp);
     } catch(e) { setAiResponse("AI error: " + e.message); }
     setAiLoading(false);
+  };
+
+  // ── Question mode: generate questions for this section ──────────────────────
+  const runQuestions = async () => {
+    setAiPanel("questions");
+    setQuestions([]); setQAnswers({}); setQLoading(true);
+    try {
+      const sys = sysBase + " You generate guided writing questions for Nigerian university final-year project sections.";
+      const prompt = "Generate exactly 4 focused questions to guide a student writing section " + chapter.num + "." + (activeSection+1) + " called \"" + sec.name + "\" on the topic: \"" + project.topic + "\". Department: " + project.dept + ".\n\nRules:\n- Each question should draw out one specific paragraph of academic content\n- Questions should be concrete and answerable in 2-4 sentences\n- Start simple, build to deeper analysis\n- Do NOT ask yes/no questions\n- Format as a JSON array of strings, nothing else. Example: [\"Q1\", \"Q2\", \"Q3\", \"Q4\"]";
+      const resp = await callAI([{ role:"user", content:prompt }], sys);
+      // Parse JSON array from response
+      const clean = resp.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setQuestions(Array.isArray(parsed) ? parsed : []);
+    } catch(e) {
+      // Fallback: split by newlines if JSON parse fails
+      const lines = (typeof e === "string" ? e : "").split("\n").filter(l => l.trim().match(/^["\d]/));
+      setQuestions(lines.length > 0 ? lines : ["What is the main problem or gap this section addresses?", "What evidence or context supports your argument here?", "How does this connect to your research objectives?", "What conclusion or insight does this section establish?"]);
+    }
+    setQLoading(false);
+  };
+
+  // ── Build academic draft from student answers ─────────────────────────────
+  const buildFromAnswers = async () => {
+    const answered = questions.filter((_, i) => (qAnswers[i] || "").trim().length > 10);
+    if (answered.length === 0) return;
+    setQBuilding(true);
+    try {
+      const sys = sysBase + " You convert student answers into polished academic prose for Nigerian university final-year projects. Write in third person, formal academic English. Do not add information the student did not provide.";
+      const pairs = questions.map((q, i) => "Q: " + q + "\nA: " + (qAnswers[i] || "(not answered)")).join("\n\n");
+      const prompt = "Convert these question-answer pairs into polished academic paragraphs for section \"" + sec.name + "\" (Chapter " + chapter.num + ") of a project on: \"" + project.topic + "\"\n\n" + pairs + "\n\nWrite flowing academic prose. Each answered question becomes one paragraph. Skip unanswered questions. Use formal Nigerian academic writing style. Output only the paragraphs, no headings or labels.";
+      const resp = await callAI([{ role:"user", content:prompt }], sys);
+      // Insert into editor
+      if (editorRef.current) {
+        const paragraphs = resp.trim().split(/\n+/).filter(p => p.trim());
+        editorRef.current.innerHTML = paragraphs.map(p => "<p>" + p.trim() + "</p>").join("");
+        // Trigger save
+        const e = new Event("input", { bubbles:true });
+        editorRef.current.dispatchEvent(e);
+      }
+      setAiPanel(null);
+      setQuestions([]); setQAnswers({});
+    } catch(e) {
+      console.error("Build error:", e);
+    }
+    setQBuilding(false);
   };
 
   const runChat = async () => {
@@ -1357,6 +1407,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
             <div style={{ fontSize:9, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:9 }}>AI Guidance</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
               {[
+                { id:"questions",icon:"❓", label:"Answer & write" },
                 { id:"explain", icon:"💡", label:"Explain section" },
                 { id:"prompt",  icon:"✍️", label:"Writing prompt" },
                 { id:"review",  icon:"🔍", label:"Review draft" },
@@ -1367,9 +1418,10 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                   onClick={() => {
                     if (t.id === "chat") { setAiPanel("chat"); setAiResponse(""); return; }
                     if (t.id === "cite") { setAiPanel("cite"); setCiteResult(""); return; }
+                    if (t.id === "questions") { runQuestions(); return; }
                     runAI(t.id);
                   }}
-                  style={{ background: aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)", border: "1px solid " + (aiPanel === t.id ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.08)"), borderRadius:9, padding:"9px 7px", cursor:"pointer", textAlign:"left", transition:"all 0.15s", gridColumn: t.id === "chat" ? "1 / -1" : "auto" }}
+                  style={{ background: aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)", border: "1px solid " + (aiPanel === t.id ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.08)"), borderRadius:9, padding:"9px 7px", cursor:"pointer", textAlign:"left", transition:"all 0.15s", gridColumn: (t.id === "chat" || t.id === "questions") ? "1 / -1" : "auto" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.1)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)"; }}
                 >
@@ -1431,7 +1483,49 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
               </div>
             )}
 
-            {aiPanel && aiPanel !== "cite" && aiPanel !== "chat" && (
+            {aiPanel === "questions" && (
+              <div className="fi">
+                {qLoading && (
+                  <div style={{ padding:"20px 0", textAlign:"center", color:"var(--grey3)", fontSize:12 }}>
+                    <div style={{ width:20, height:20, border:"2px solid rgba(0,201,167,0.2)", borderTop:"2px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 10px" }} />
+                    Generating questions...
+                  </div>
+                )}
+                {!qLoading && questions.length > 0 && (
+                  <div>
+                    <div style={{ fontSize:10, color:"var(--teal)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
+                      Answer each question — your draft will be built automatically
+                    </div>
+                    {questions.map((q, i) => (
+                      <div key={i} style={{ marginBottom:14 }}>
+                        <div style={{ fontSize:12, color:"var(--white)", fontWeight:600, marginBottom:5, lineHeight:1.5 }}>
+                          {i+1}. {q}
+                        </div>
+                        <textarea
+                          value={qAnswers[i] || ""}
+                          onChange={e => setQAnswers(prev => ({ ...prev, [i]: e.target.value }))}
+                          placeholder="Type your answer here..."
+                          rows={3}
+                          style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"9px 11px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", outline:"none", resize:"vertical", lineHeight:1.6, transition:"border-color 0.2s" }}
+                          onFocus={e => { e.target.style.borderColor = "rgba(0,201,167,0.5)"; }}
+                          onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                        />
+                      </div>
+                    ))}
+                    <button onClick={buildFromAnswers}
+                      disabled={qBuilding || Object.values(qAnswers).filter(a => (a||"").trim().length > 10).length === 0}
+                      style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:9, padding:"11px", fontSize:13, fontFamily:"var(--font-d)", fontWeight:700, cursor:"pointer", marginTop:4 }}>
+                      {qBuilding ? "Building your draft..." : "✓ Build my draft →"}
+                    </button>
+                    <div style={{ fontSize:10, color:"var(--grey3)", textAlign:"center", marginTop:8, lineHeight:1.5 }}>
+                      Answer at least one question. Your responses will be turned into academic prose and placed in the editor.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {aiPanel && aiPanel !== "cite" && aiPanel !== "chat" && aiPanel !== "questions" && (
               <div className="fi" style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.14)", borderRadius:9, padding:13, fontSize:13, color:"var(--grey2)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>
                 {aiLoading ? "Generating guidance..." : aiResponse}
               </div>
