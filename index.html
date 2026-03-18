@@ -606,7 +606,7 @@ function SetupScreen({ onSubmit, onBack }) {
   );
 }
 
-function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSubmission }) {
+function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSubmission, onGoToResources }) {
   const [chapterFeedback, setChapterFeedback] = useState({});
   const [checkingFeedback, setCheckingFeedback] = useState(false);
   const [readFeedback, setReadFeedback] = useState(() => {
@@ -665,6 +665,7 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
           )}
           <button onClick={onHome} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
           <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>New project</button>
+          <button onClick={onGoToResources} style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 12px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>📚 Resources</button>
         </div>
       </div>
       <div style={{ flex:1, padding:"28px 0" }}><div className="rp-container">
@@ -2355,7 +2356,7 @@ function pushNotification(userKey, message) {
   } catch(e) {}
 }
 
-function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToChapters, onViewSubmission, onSignOut }) {
+function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToChapters, onViewSubmission, onSignOut, onGoToResources }) {
   const [feedback,        setFeedback]        = useState({});
   const [readFeedback,    setReadFeedback]     = useState(() => {
     // Initialise synchronously so badge is correct on first render
@@ -2599,7 +2600,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
               { icon:"📋", label:"All chapters",    sub:"Full chapter list & status",       fn: onGoToChapters },
               { icon:"✍️", label:"Continue writing", sub: nextChapter ? "Ch." + nextChapter.num + " — " + nextChapter.title : "All chapters done", fn: nextChapter ? () => onGoToChapter(nextChapter) : onGoToChapters },
               { icon:"💬", label:"Check feedback",  sub: hasFeedback.length > 0 ? hasFeedback.length + " item(s) waiting" : "No new feedback",    fn: onGoToChapters },
-              { icon:"📚", label:"View progress",   sub:"Track all 5 chapters",             fn: onGoToChapters },
+              { icon:"📚", label:"Resources",       sub:"Library, citation guide & tools",  fn: onGoToResources },
             ].map((a, i) => (
               <button key={i} onClick={a.fn}
                 style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
@@ -3727,6 +3728,276 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
 // ── API Key Modal Component ───────────────────────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════
+//  RESOURCES SCREEN
+// ═══════════════════════════════════════════════════════════════
+const RESEARCH_LIBRARY = [
+  {
+    category: "Getting Started",
+    icon: "🚀",
+    items: [
+      { title: "How to Choose a Research Topic", desc: "A step-by-step guide to narrowing your topic from broad to specific, with examples from Nigerian universities.", url: "https://www.scribbr.com/research-process/research-topic/" },
+      { title: "Understanding Research Objectives vs Research Questions", desc: "Learn the difference and how to write both correctly for your final-year project.", url: "https://www.scribbr.com/research-process/research-objectives/" },
+      { title: "Types of Research: Qualitative vs Quantitative", desc: "Understand which research type fits your topic and department.", url: "https://www.scribbr.com/methodology/qualitative-quantitative-research/" },
+    ]
+  },
+  {
+    category: "Literature Review",
+    icon: "📖",
+    items: [
+      { title: "How to Write a Literature Review", desc: "Step-by-step guide to summarising, synthesising and critically evaluating existing research.", url: "https://www.scribbr.com/dissertation/literature-review/" },
+      { title: "Finding Academic Sources", desc: "Free databases every Nigerian student should know — Google Scholar, JSTOR, ResearchGate, Semantic Scholar.", url: "https://scholar.google.com" },
+      { title: "Conceptual vs Theoretical Framework Explained", desc: "Many students confuse these two. This guide clarifies both with clear examples.", url: "https://www.scribbr.com/dissertation/theoretical-framework/" },
+    ]
+  },
+  {
+    category: "Research Methodology",
+    icon: "🔬",
+    items: [
+      { title: "Research Design: A Complete Guide", desc: "Covers descriptive, exploratory, explanatory and experimental designs with examples.", url: "https://www.scribbr.com/methodology/research-design/" },
+      { title: "Sampling Methods Explained", desc: "Random, purposive, snowball — learn which sampling method suits your study.", url: "https://www.scribbr.com/methodology/sampling-methods/" },
+      { title: "Data Collection Methods", desc: "Surveys, interviews, observations, secondary data — how to choose and justify your method.", url: "https://www.scribbr.com/methodology/data-collection/" },
+      { title: "Validity and Reliability in Research", desc: "How to ensure your research is credible, consistent, and academically sound.", url: "https://www.scribbr.com/methodology/reliability-validity/" },
+    ]
+  },
+  {
+    category: "Academic Writing",
+    icon: "✍️",
+    items: [
+      { title: "How to Write in Academic Style", desc: "Formal tone, hedging language, passive voice, third-person writing — all explained simply.", url: "https://www.scribbr.com/academic-writing/academic-style/" },
+      { title: "Avoiding Plagiarism", desc: "What counts as plagiarism, how to paraphrase correctly, and how to cite properly.", url: "https://www.scribbr.com/plagiarism/how-to-avoid-plagiarism/" },
+      { title: "How to Write Strong Paragraphs (PEEL Method)", desc: "Point, Evidence, Explanation, Link — the structure every academic paragraph should follow.", url: "https://www.scribbr.com/academic-essay/paragraph-structure/" },
+      { title: "Transition Words for Academic Writing", desc: "Words and phrases that connect your arguments and make your writing flow.", url: "https://www.scribbr.com/academic-writing/transition-words/" },
+    ]
+  },
+  {
+    category: "Free Academic Databases",
+    icon: "🗄️",
+    items: [
+      { title: "Google Scholar", desc: "The largest free academic search engine. Search for journal articles, theses, and books.", url: "https://scholar.google.com" },
+      { title: "ResearchGate", desc: "Connect with researchers and access millions of papers, including African research.", url: "https://www.researchgate.net" },
+      { title: "Semantic Scholar", desc: "AI-powered academic search. Find papers and see how they cite each other.", url: "https://www.semanticscholar.org" },
+      { title: "SSRN (Social Science Research Network)", desc: "Essential for Economics, Finance, Law, Management and Public Policy students.", url: "https://www.ssrn.com" },
+      { title: "African Journals Online (AJOL)", desc: "The largest collection of African-published academic journals. Find local research.", url: "https://www.ajol.info" },
+      { title: "JSTOR", desc: "Access thousands of academic journals, books and primary sources.", url: "https://www.jstor.org" },
+    ]
+  },
+];
+
+const CITATION_GUIDE = [
+  {
+    style: "APA (7th Edition)",
+    color: "#00C9A7",
+    desc: "Most common in Social Sciences, Psychology, Education, Business",
+    formats: [
+      { type: "Journal Article", template: "Author, A. A., & Author, B. B. (Year). Title of article. Journal Name, Volume(Issue), pages. https://doi.org/xxxxx", example: "Okonkwo, C., & Adeyemi, T. (2022). Digital banking adoption in Nigeria. Journal of African Business, 23(2), 45–67. https://doi.org/10.1080/xxxxx" },
+      { type: "Book", template: "Author, A. A. (Year). Title of work: Capital letter also for subtitle. Publisher.", example: "Nwosu, E. (2020). Research methods for Nigerian universities. University Press." },
+      { type: "Website", template: "Author, A. A. (Year, Month Day). Title of page. Site Name. URL", example: "Central Bank of Nigeria. (2023, March 15). Annual economic report. CBN. https://cbn.gov.ng" },
+    ]
+  },
+  {
+    style: "Harvard",
+    color: "#FFC107",
+    desc: "Common in UK-style universities and many Nigerian institutions",
+    formats: [
+      { type: "Journal Article", template: "Author(s) (Year) 'Title of article', Journal Name, Vol(Issue), pp. pages.", example: "Okonkwo, C. and Adeyemi, T. (2022) 'Digital banking adoption in Nigeria', Journal of African Business, 23(2), pp. 45–67." },
+      { type: "Book", template: "Author(s) (Year) Title of Book. Edition. Place: Publisher.", example: "Nwosu, E. (2020) Research Methods for Nigerian Universities. 2nd edn. Ibadan: University Press." },
+      { type: "Website", template: "Author(s) (Year) Title [Online]. Available at: URL (Accessed: Day Month Year).", example: "CBN (2023) Annual Economic Report [Online]. Available at: https://cbn.gov.ng (Accessed: 15 March 2024)." },
+    ]
+  },
+  {
+    style: "MLA (9th Edition)",
+    color: "#FF9800",
+    desc: "Common in Humanities, Literature, Language Arts",
+    formats: [
+      { type: "Journal Article", template: "Author Last, First. \"Title of Article.\" Journal Name, vol. #, no. #, Year, pp. #–#.", example: "Okonkwo, Chidi. \"Digital Banking in Nigeria.\" Journal of African Business, vol. 23, no. 2, 2022, pp. 45–67." },
+      { type: "Book", template: "Author Last, First. Title of Book. Publisher, Year.", example: "Nwosu, Emmanuel. Research Methods for Nigerian Universities. University Press, 2020." },
+    ]
+  },
+];
+
+function ResourcesScreen({ project, onBack }) {
+  const [activeTab, setActiveTab] = React.useState("library");
+  const [expandedStyle, setExpandedStyle] = React.useState(null);
+  const [expandedCat, setExpandedCat] = React.useState(null);
+  const [citeTool, setCiteTool] = React.useState({ author:"", year:"", title:"", journal:"", style:"APA" });
+  const [citeResult, setCiteResult] = React.useState("");
+  const [citeLoading, setCiteLoading] = React.useState(false);
+
+  const runCite = async () => {
+    if (!citeTool.author || !citeTool.title) return;
+    setCiteLoading(true); setCiteResult("");
+    try {
+      const prompt = "Format this source in " + citeTool.style + " style. Author(s): " + citeTool.author + ". Year: " + citeTool.year + ". Title: " + citeTool.title + ". Journal/Publisher: " + (citeTool.journal || "not provided") + ". Output only the formatted reference list entry, nothing else.";
+      const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
+      setCiteResult(resp.trim());
+    } catch(e) { setCiteResult("Error: " + e.message); }
+    setCiteLoading(false);
+  };
+
+  const tabStyle = (id) => ({
+    flex:1, padding:"10px 8px", background: activeTab === id ? "var(--teal)" : "transparent",
+    color: activeTab === id ? "var(--navy)" : "var(--grey3)",
+    border: "1px solid " + (activeTab === id ? "var(--teal)" : "rgba(255,255,255,0.08)"),
+    borderRadius:8, fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", transition:"all 0.2s"
+  });
+
+  return (
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+      {/* Nav */}
+      <div className="rp-nav">
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <button onClick={onBack}
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
+            ← Back
+          </button>
+          <div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>Resources</div>
+            <div style={{ fontSize:10, color:"var(--grey3)" }}>Research Library & Citation Guide</div>
+          </div>
+        </div>
+        <ProjectaIcon size={28} />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ padding:"12px 18px 0", display:"flex", gap:8, borderBottom:"1px solid rgba(255,255,255,0.07)", paddingBottom:0 }}>
+        <button style={tabStyle("library")} onClick={() => setActiveTab("library")}>📚 Research Library</button>
+        <button style={tabStyle("citation")} onClick={() => setActiveTab("citation")}>🔖 Citation Guide</button>
+        <button style={tabStyle("tool")} onClick={() => setActiveTab("tool")}>✨ Format a Citation</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 0" }}>
+        <div className="rp-container">
+
+          {/* ── RESEARCH LIBRARY ─────────────────────────────── */}
+          {activeTab === "library" && (
+            <div className="fu">
+              <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:20, lineHeight:1.7 }}>
+                Curated resources to help you at every stage of your final-year project. Click any item to open it.
+              </div>
+              {RESEARCH_LIBRARY.map((cat, ci) => (
+                <div key={ci} style={{ marginBottom:14 }}>
+                  <button
+                    onClick={() => setExpandedCat(expandedCat === ci ? null : ci)}
+                    style={{ width:"100%", background: expandedCat === ci ? "rgba(0,201,167,0.08)" : "var(--navy2)", border:"1px solid " + (expandedCat === ci ? "rgba(0,201,167,0.3)" : "rgba(255,255,255,0.07)"), borderRadius:12, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", transition:"all 0.2s" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:18 }}>{cat.icon}</span>
+                      <div style={{ textAlign:"left" }}>
+                        <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>{cat.category}</div>
+                        <div style={{ fontSize:10, color:"var(--grey3)", marginTop:2 }}>{cat.items.length} resources</div>
+                      </div>
+                    </div>
+                    <span style={{ color:"var(--teal)", fontSize:14, transition:"transform 0.2s", transform: expandedCat === ci ? "rotate(90deg)" : "none" }}>›</span>
+                  </button>
+                  {expandedCat === ci && (
+                    <div className="fi" style={{ marginTop:6, display:"flex", flexDirection:"column", gap:8 }}>
+                      {cat.items.map((item, ii) => (
+                        <a key={ii} href={item.url} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"block", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, padding:"14px 16px", textDecoration:"none", transition:"all 0.15s" }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.05)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.2)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}>
+                          <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--teal)", marginBottom:5 }}>{item.title} →</div>
+                          <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>{item.desc}</div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── CITATION GUIDE ───────────────────────────────── */}
+          {activeTab === "citation" && (
+            <div className="fu">
+              <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:20, lineHeight:1.7 }}>
+                Reference formats for the most common citation styles used in Nigerian universities. Click a style to see examples.
+              </div>
+              {CITATION_GUIDE.map((style, si) => (
+                <div key={si} style={{ marginBottom:14 }}>
+                  <button
+                    onClick={() => setExpandedStyle(expandedStyle === si ? null : si)}
+                    style={{ width:"100%", background: expandedStyle === si ? "rgba(0,201,167,0.06)" : "var(--navy2)", border:"1px solid " + (expandedStyle === si ? style.color + "55" : "rgba(255,255,255,0.07)"), borderRadius:12, padding:"14px 18px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", transition:"all 0.2s" }}>
+                    <div style={{ textAlign:"left" }}>
+                      <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color: style.color }}>{style.style}</div>
+                      <div style={{ fontSize:11, color:"var(--grey3)", marginTop:3 }}>{style.desc}</div>
+                    </div>
+                    <span style={{ color: style.color, fontSize:14, transition:"transform 0.2s", transform: expandedStyle === si ? "rotate(90deg)" : "none" }}>›</span>
+                  </button>
+                  {expandedStyle === si && (
+                    <div className="fi" style={{ marginTop:6, display:"flex", flexDirection:"column", gap:10 }}>
+                      {style.formats.map((fmt, fi) => (
+                        <div key={fi} style={{ background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:10, padding:"14px 16px" }}>
+                          <div style={{ fontSize:10, fontWeight:700, color: style.color, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>{fmt.type}</div>
+                          <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:8, lineHeight:1.7, fontStyle:"italic" }}>Format: {fmt.template}</div>
+                          <div style={{ background:"rgba(0,0,0,0.2)", borderRadius:7, padding:"10px 12px", fontSize:12, color:"var(--grey2)", lineHeight:1.7, borderLeft:"3px solid " + style.color }}>{fmt.example}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── FORMAT A CITATION TOOL ───────────────────────── */}
+          {activeTab === "tool" && (
+            <div className="fu">
+              <div style={{ fontSize:11, color:"var(--grey3)", marginBottom:20, lineHeight:1.7 }}>
+                Enter your source details and the AI will format it correctly in your chosen citation style.
+              </div>
+              <div style={{ background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"20px 18px" }}>
+                {[
+                  { k:"author", lb:"Author(s)", ph:"e.g. Soludo, C.C. and Okonkwo, E." },
+                  { k:"year",   lb:"Year",      ph:"e.g. 2023" },
+                  { k:"title",  lb:"Title",     ph:"Title of article, book, or webpage" },
+                  { k:"journal",lb:"Journal / Publisher / Website", ph:"e.g. CBN Economic Review (leave blank if N/A)" },
+                ].map(f => (
+                  <div key={f.k} style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:10, color:"var(--grey3)", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:600 }}>{f.lb}</div>
+                    <input value={citeTool[f.k]} onChange={e => setCiteTool(p => ({ ...p, [f.k]: e.target.value }))}
+                      placeholder={f.ph}
+                      style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"10px 13px", color:"var(--white)", fontSize:13, fontFamily:"var(--font-b)", outline:"none", transition:"border-color 0.2s" }}
+                      onFocus={e => e.target.style.borderColor = "rgba(0,201,167,0.5)"}
+                      onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"} />
+                  </div>
+                ))}
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:10, color:"var(--grey3)", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:600 }}>Citation Style</div>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    {["APA","Harvard","MLA","Chicago","Vancouver"].map(s => (
+                      <button key={s} onClick={() => setCiteTool(p => ({ ...p, style:s }))}
+                        style={{ padding:"7px 16px", borderRadius:20, border:"1px solid " + (citeTool.style === s ? "var(--teal)" : "rgba(255,255,255,0.1)"), background: citeTool.style === s ? "rgba(0,201,167,0.12)" : "transparent", color: citeTool.style === s ? "var(--teal)" : "var(--grey3)", fontSize:12, fontFamily:"var(--font-d)", fontWeight:600, cursor:"pointer", transition:"all 0.2s" }}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button onClick={runCite} disabled={!citeTool.author || !citeTool.title || citeLoading}
+                  style={{ width:"100%", background: (!citeTool.author || !citeTool.title) ? "rgba(0,201,167,0.3)" : "var(--teal)", color:"var(--navy)", border:"none", borderRadius:10, padding:"12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, cursor: (!citeTool.author || !citeTool.title) ? "default" : "pointer", transition:"all 0.2s" }}>
+                  {citeLoading ? "Formatting..." : "✨ Format Citation"}
+                </button>
+                {citeResult && (
+                  <div className="fi" style={{ marginTop:14, background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:10, padding:"14px 16px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>{citeTool.style} — Formatted Citation</div>
+                    <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.8 }}>{citeResult}</div>
+                    <button onClick={() => navigator.clipboard && navigator.clipboard.writeText(citeResult)}
+                      style={{ marginTop:10, background:"transparent", border:"1px solid rgba(0,201,167,0.3)", borderRadius:6, padding:"6px 14px", color:"var(--teal)", fontSize:11, fontFamily:"var(--font-d)", fontWeight:600, cursor:"pointer" }}>
+                      Copy
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const [role,        setRole]        = useState(null);  // null | "student" | "supervisor"
   const [supervisor,  setSupervisor]  = useState(null);
@@ -3738,6 +4009,7 @@ function App() {
   const [viewChapterFeedback, setViewChapterFeedback] = useState(null);
   const [savedProject, setSavedProject] = useState(null);
   const [studentEmail,  setStudentEmail]  = useState(null);
+  const [prevScreen,    setPrevScreen]    = useState(null); // to return from Resources
 
 
   // ── Load everything from storage on first mount ──────────────────────────
@@ -4037,6 +4309,7 @@ function App() {
               setChapter(ch); setScreen("writing");
             }}
           onGoToChapters={() => setScreen("chapters")}
+          onGoToResources={() => { setPrevScreen("dashboard"); setScreen("resources"); }}
           onViewSubmission={(ch, fb) => { setViewChapter(ch); setViewChapterFeedback(fb || null); }}
           onSignOut={handleSignOut}
         />
@@ -4049,6 +4322,12 @@ function App() {
           onBack={() => setScreen("setup")}
           onSelect={ch => { setChapter(ch); setScreen("writing"); }}
           onViewSubmission={(ch, fb) => { setViewChapter(ch); setViewChapterFeedback(fb || null); }}
+        />
+      )}
+      {screen === "resources" && project && (
+        <ResourcesScreen
+          project={project}
+          onBack={() => setScreen(prevScreen || "dashboard")}
         />
       )}
       {screen === "writing" && project && chapter && (
