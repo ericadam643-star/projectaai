@@ -3842,39 +3842,27 @@ function ResourcesScreen({ project, onBack }) {
   const generateTopicLibrary = async (cacheKey) => {
     setLibLoading(true); setLibError("");
     try {
-      const sys = "You are an academic librarian helping Nigerian university final-year students find relevant books and journals. You provide accurate, real academic references.";
-      const prompt = `Generate a topic-specific research library for a Nigerian university student with this project:
-Topic: "${project.topic}"
-Department: ${project.dept}
-University: ${project.uni}
-
-Return a JSON object with exactly this structure (no markdown, just raw JSON):
-{
-  "books": [
-    { "title": "Book Title", "author": "Author Name(s)", "year": "Year", "publisher": "Publisher", "relevance": "One sentence on why this is useful for their topic", "searchUrl": "https://scholar.google.com/scholar?q=TITLE+AUTHOR" }
-  ],
-  "journals": [
-    { "name": "Journal Name", "focus": "What this journal covers", "access": "Free/Paid", "url": "Journal URL or Google Scholar link", "relevance": "Why this journal is useful for their department/topic" }
-  ],
-  "keyAuthors": [
-    { "name": "Author Name", "expertise": "Their field and why relevant", "searchUrl": "https://scholar.google.com/scholar?q=AUTHOR+NAME" }
-  ]
-}
-
-Rules:
-- Books: provide 5 real, well-known academic books directly relevant to the topic and department
-- Journals: provide 4 real academic journals where the student can find articles on their topic (include at least 1 African journal)
-- Key Authors: provide 3 leading academics in this field whose work the student should read
-- All entries must be real and verifiable
-- searchUrl should be a working Google Scholar search link for that item`;
+      const sys = "You are an academic librarian. Respond ONLY with a valid JSON object, no explanation, no markdown, no code blocks. Just raw JSON.";
+      const prompt = "Generate a research library for a Nigerian university student. Topic: " + project.topic + ". Department: " + project.dept + ". University: " + project.uni + "." +
+        " Return ONLY this JSON with no other text: {" +
+        '"books":[{"title":"x","author":"x","year":"x","publisher":"x","relevance":"x","searchUrl":"x"}],' +
+        '"journals":[{"name":"x","focus":"x","access":"x","url":"x","relevance":"x"}],' +
+        '"keyAuthors":[{"name":"x","expertise":"x","searchUrl":"x"}]' +
+        "}. Fill books with 5 real books relevant to the topic. Fill journals with 4 real journals (1 must be African). Fill keyAuthors with 3 leading academics. For searchUrl use https://scholar.google.com/scholar?q=name. Return ONLY the JSON.";
 
       const resp = await callAI([{ role:"user", content:prompt }], sys);
-      const clean = resp.replace(/```json|```/g,"").trim();
-      const parsed = JSON.parse(clean);
+
+      // Extract JSON robustly — find outermost { }
+      const firstBrace = resp.indexOf("{");
+      const lastBrace = resp.lastIndexOf("}");
+      if (firstBrace === -1 || lastBrace === -1) throw new Error("No JSON found in response");
+      const jsonStr = resp.slice(firstBrace, lastBrace + 1);
+      const parsed = JSON.parse(jsonStr);
+      if (!parsed.books || !parsed.journals) throw new Error("Incomplete response — please try again");
       setTopicLibrary(parsed);
       try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch(e) {}
     } catch(e) {
-      setLibError("Could not load topic resources. Check your internet connection and try again.");
+      setLibError("Error: " + e.message + ". Please tap Try Again.");
     }
     setLibLoading(false);
   };
