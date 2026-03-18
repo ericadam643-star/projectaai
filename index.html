@@ -938,7 +938,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       }
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setAiResponse(resp);
-    } catch(e) { setAiResponse("AI error: " + e.message); } }
+    } catch(e) { setAiResponse("AI error: " + e.message); }
     setAiLoading(false);
   };
 
@@ -949,7 +949,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
       const resp = await callAI([{ role:"user", content:q }], sys);
       setAiResponse(resp);
-    } catch(e) { setAiResponse("AI error: " + e.message); } }
+    } catch(e) { setAiResponse("AI error: " + e.message); }
     setAiLoading(false);
   };
 
@@ -960,7 +960,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Format this source in " + citeSrc.style + " style. Author(s): " + citeSrc.author + ". Year: " + citeSrc.year + ". Title: " + citeSrc.title + ". Journal/Publisher: " + (citeSrc.journal || "not provided") + ". Output only the formatted reference list entry.";
       const resp = await callAI([{ role:"user", content:prompt }], "You are an academic citation formatter. Output only the formatted citation, nothing else.");
       setCiteResult(resp.trim());
-    } catch(e) { setCiteResult("AI error: " + e.message); } }
+    } catch(e) { setCiteResult("AI error: " + e.message); }
     setAiLoading(false);
   };
 
@@ -972,7 +972,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
       const prompt = "Here is the full Chapter " + chapter.num + " draft:\n\n" + allText + "\n\nProvide structured feedback:\n\nOverall Assessment (2-3 sentences)\n\nWhat is strong (2-3 points)\n\nWhat needs improvement (2-3 actionable points)\n\nMissing content\n\nBefore submitting to supervisor (1-2 critical fixes)\n\nBe specific and grounded in the topic: " + project.topic;
       const resp = await callAI([{ role:"user", content:prompt }], sys);
       setFeedback(resp);
-    } catch(e) { setFeedback("Error: " + e.message); } }
+    } catch(e) { setFeedback("Error: " + e.message); }
     setFeedbackLoading(false);
   };
 
@@ -2770,7 +2770,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const prompt = "Supervisor reviewed Chapter " + activeChapter + " with these notes:\n\n" + parts.join("\n") + "\n\nProvide a response with these exact sections:\n\nCORRECTIONS NEEDED\n(bullet each specific correction)\n\nSUPERVISOR EXPECTATIONS\n(bullet what is expected in the revision)\n\nENCOURAGEMENT\n(two encouraging sentences)\n\nUnder 350 words.";
       const result = await callAI([{ role:"user", content:prompt }], sys);
       setAiSummary(result);
-    } catch(e) { setAiSummary("AI error: " + e.message); } }
+    } catch(e) { setAiSummary("AI error: " + e.message); }
     setSummaryLoading(false);
   };
 
@@ -2822,7 +2822,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const text = await callAI([{ role:"user", content:prompt }], sys);
       setAiSuggestion(text);
       setFeedback(text);
-    } catch(e) { setAiSuggestion("AI error: " + e.message); } }
+    } catch(e) { setAiSuggestion("AI error: " + e.message); }
     setAiLoading(false);
   };
 
