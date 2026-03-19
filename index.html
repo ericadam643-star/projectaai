@@ -3779,47 +3779,47 @@ function SupervisorDashboard({ supervisor, onBack }) {
     const saveAll = async () => { await saveFeedback(); };
 
     return (
-      <div style={{ minHeight:"100vh", background:"#F0F4F8", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
 
         {/* Header */}
-        <div style={{ padding:"12px 20px", borderBottom:"1px solid #E2E8F0", display:"flex", alignItems:"center", gap:10, position:"sticky", top:0, background:"rgba(240,244,248,0.95)", backdropFilter:"blur(12px)", zIndex:10, flexWrap:"wrap" }}>
+        <div style={{ padding:"12px 20px", borderBottom:"1px solid #E2E8F0", display:"flex", alignItems:"center", gap:10, position:"sticky", top:0, background:"var(--navy)", zIndex:10, flexWrap:"wrap" }}>
           <button onClick={() => { setView("overview"); setActiveStudent(null); setActiveChapter(null); setChapterData(null); }}
-            style={{ background:"transparent", border:"1px solid #CBD5E0", borderRadius:7, padding:"6px 12px", color:"#4A5568", fontSize:12, cursor:"pointer", flexShrink:0, transition:"all 0.15s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#A0AEC0"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#CBD5E0"; }}>
+            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer", flexShrink:0, transition:"all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
             ← Back
           </button>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-              <span style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"#1A2E42" }}>{activeStudent.name} — Chapter {activeChapter}</span>
+              <span style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)" }}>{activeStudent.name} — Chapter {activeChapter}</span>
               <span style={{ background:"rgba(255,112,67,0.1)", border:"1px solid rgba(255,112,67,0.3)", borderRadius:20, padding:"2px 9px", fontSize:10, fontWeight:700, color:"#FF7043", flexShrink:0 }}>🔒 Locked</span>
             </div>
-            <div style={{ fontSize:11, color:"#8892A0", marginTop:2 }}>{wordCount} words · Read-only submission</div>
+            <div style={{ fontSize:11, color:"var(--grey3)", marginTop:2 }}>{wordCount} words · Read-only submission</div>
           </div>
           <button onClick={saveAll}
-            style={{ background: feedbackSaved ? "rgba(76,175,80,0.12)" : "var(--teal)", color: feedbackSaved ? "#2E7D32" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.4)" : "none", borderRadius:8, padding:"7px 16px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", flexShrink:0, transition:"all 0.2s", boxShadow: feedbackSaved ? "none" : "0 2px 8px rgba(0,201,167,0.25)" }}>
+            style={{ background: feedbackSaved ? "rgba(76,175,80,0.15)" : "var(--teal)", color: feedbackSaved ? "#4CAF50" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.4)" : "none", borderRadius:8, padding:"7px 16px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", flexShrink:0, transition:"all 0.2s", boxShadow: feedbackSaved ? "none" : "0 2px 8px rgba(0,201,167,0.25)" }}>
             {feedbackSaved ? "✓ Saved" : "Save all comments"}
           </button>
         </div>
 
         {/* Lock notice */}
-        <div style={{ background:"#FFF5F0", borderBottom:"1px solid #FED7C7", padding:"9px 20px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+        <div style={{ background:"rgba(255,112,67,0.06)", borderBottom:"1px solid rgba(255,112,67,0.15)", padding:"9px 20px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
           <span style={{ fontSize:13 }}>🔒</span>
-          <span style={{ fontSize:12, color:"#C05621" }}>This chapter is locked for review. The student cannot edit it until you return it for revision.</span>
+          <span style={{ fontSize:12, color:"#FF7043" }}>This chapter is locked for review. The student cannot edit it until you return it for revision.</span>
           {chapterData && chapterData.version && chapterData.version > 1 && (
-            <span style={{ marginLeft:"auto", background:"#FFFBEB", border:"1px solid #F6E05E", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700, color:"#B7791F" }}>
+            <span style={{ marginLeft:"auto", background:"rgba(255,193,7,0.15)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:20, padding:"3px 10px", fontSize:10, fontWeight:700, color:"#FFC107" }}>
               🔄 Revision v{chapterData.version}
             </span>
           )}
         </div>
 
         {/* Status bar */}
-        <div style={{ padding:"10px 20px", borderBottom:"1px solid #E2E8F0", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", background:"#fff" }}>
-          <span style={{ fontSize:11, color:"#8892A0", marginRight:4, fontWeight:600 }}>Status:</span>
+        <div style={{ padding:"10px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, color:"var(--grey3)", marginRight:4, fontWeight:600 }}>Status:</span>
           {Object.entries(statusConfig).map(([key, cfg]) => (
             <button key={key} onClick={() => { setStatus(key); setFeedbackSaved(false); }}
-              style={{ background: status===key ? cfg.bg : "#F7FAFC", border:"1px solid " + (status===key ? cfg.border : "#E2E8F0"), borderRadius:20, padding:"5px 14px", cursor:"pointer", transition:"all 0.15s" }}>
-              <span style={{ fontSize:11, fontWeight:700, color: status===key ? cfg.color : "#718096" }}>{cfg.label}</span>
+              style={{ background: status===key ? cfg.bg : "transparent", border:"1px solid " + (status===key ? cfg.border : "rgba(255,255,255,0.08)"), borderRadius:20, padding:"5px 14px", cursor:"pointer", transition:"all 0.15s" }}>
+              <span style={{ fontSize:11, fontWeight:700, color: status===key ? cfg.color : "var(--grey3)" }}>{cfg.label}</span>
             </button>
           ))}
           <div style={{ marginLeft:"auto", display:"flex", gap:7, flexShrink:0 }}>
@@ -3843,41 +3843,41 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
           {/* AI feedback banner */}
           {aiSuggestion && (
-            <div style={{ background:"#F0FFF4", border:"1px solid #9AE6B4", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:"#276749", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>✦ AI Review Summary</div>
-              <div style={{ fontSize:13, color:"#2D3748", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{aiSuggestion}</div>
+            <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:12, padding:"16px 18px", marginBottom:20 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>✦ AI Review Summary</div>
+              <div style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{aiSuggestion}</div>
             </div>
           )}
 
           {/* Similarity Check Results Panel */}
           {showSim && (
-            <div style={{ background:"#FFF5F5", border:"1px solid #FEB2B2", borderRadius:14, padding:"18px 20px", marginBottom:20 }}>
+            <div style={{ background:"rgba(255,82,82,0.04)", border:"1px solid rgba(255,82,82,0.2)", borderRadius:14, padding:"18px 20px", marginBottom:20 }}>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <span style={{ fontSize:16 }}>🔍</span>
                   <div>
-                    <div style={{ fontSize:10, fontWeight:700, color:"#C53030", letterSpacing:"0.08em", textTransform:"uppercase" }}>Similarity Check</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FF5252", letterSpacing:"0.08em", textTransform:"uppercase" }}>Similarity Check</div>
                     {simResults && !simResults.error && (
-                      <div style={{ fontSize:10, color:"#718096", marginTop:1 }}>Checked at {simResults.checkedAt} · {simResults.total} phrases analysed</div>
+                      <div style={{ fontSize:10, color:"var(--grey3)", marginTop:1 }}>Checked at {simResults.checkedAt} · {simResults.total} phrases analysed</div>
                     )}
                   </div>
                 </div>
-                <button onClick={() => setShowSim(false)} style={{ background:"transparent", border:"none", color:"#718096", cursor:"pointer", fontSize:18, lineHeight:1 }}>✕</button>
+                <button onClick={() => setShowSim(false)} style={{ background:"transparent", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:18 }}>✕</button>
               </div>
 
               {simLoading && (
                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                   {[1,2,3,4,5].map(n => (
-                    <div key={n} style={{ background:"#FFF", borderRadius:8, padding:"12px 14px", display:"flex", alignItems:"center", gap:10, border:"1px solid #FED7D7" }}>
-                      <div style={{ width:16, height:16, border:"2px solid #FEB2B2", borderTop:"2px solid #E53E3E", borderRadius:"50%", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
-                      <div style={{ fontSize:12, color:"#718096" }}>Searching phrase {n} of 5...</div>
+                    <div key={n} style={{ background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:16, height:16, border:"2px solid rgba(255,82,82,0.2)", borderTop:"2px solid #FF5252", borderRadius:"50%", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+                      <div style={{ fontSize:12, color:"var(--grey3)" }}>Searching phrase {n} of 5...</div>
                     </div>
                   ))}
                 </div>
               )}
 
               {simResults && simResults.error && (
-                <div style={{ fontSize:13, color:"#718096", fontStyle:"italic" }}>{simResults.error}</div>
+                <div style={{ fontSize:13, color:"var(--grey3)", fontStyle:"italic" }}>{simResults.error}</div>
               )}
 
               {simResults && !simResults.error && (
@@ -3885,40 +3885,40 @@ function SupervisorDashboard({ supervisor, onBack }) {
                   <div style={{ background: simResults.verdictBg, border:"1px solid " + simResults.verdictColor + "44", borderRadius:10, padding:"14px 18px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
                     <div>
                       <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:800, color: simResults.verdictColor }}>{simResults.verdict}</div>
-                      <div style={{ fontSize:11, color:"#718096", marginTop:4 }}>{simResults.flaggedCount} of {simResults.total} phrases matched online sources</div>
+                      <div style={{ fontSize:11, color:"var(--grey3)", marginTop:3 }}>{simResults.flaggedCount} of {simResults.total} phrases matched online sources</div>
                     </div>
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontFamily:"var(--font-d)", fontSize:28, fontWeight:900, color: simResults.verdictColor, lineHeight:1 }}>{simResults.score}%</div>
-                      <div style={{ fontSize:9, color:"#718096", textTransform:"uppercase", letterSpacing:"0.08em" }}>similarity score</div>
+                      <div style={{ fontSize:9, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.08em" }}>similarity score</div>
                     </div>
                   </div>
-                  <div style={{ background:"#FFFBEB", border:"1px solid #F6E05E", borderRadius:8, padding:"9px 13px", marginBottom:14, fontSize:11, color:"#744210", lineHeight:1.65 }}>
+                  <div style={{ background:"rgba(255,255,255,0.03)", borderRadius:8, padding:"8px 12px", marginBottom:14, fontSize:10, color:"var(--grey3)", lineHeight:1.65 }}>
                     ⚠️ This check searches phrases via DuckDuckGo. A match does not always mean plagiarism — it may indicate common academic language or properly cited sources. Use as a flag for manual review only.
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                     {simResults.results.map((r, i) => (
-                      <div key={i} style={{ background: r.flagged ? "#FFF5F5" : "#F0FFF4", border:"1px solid " + (r.flagged ? "#FEB2B2" : "#9AE6B4"), borderRadius:10, padding:"12px 14px" }}>
+                      <div key={i} style={{ background: r.flagged ? "rgba(255,82,82,0.05)" : "rgba(76,175,80,0.04)", border:"1px solid " + (r.flagged ? "rgba(255,82,82,0.2)" : "rgba(76,175,80,0.15)"), borderRadius:10, padding:"12px 14px" }}>
                         <div style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom: r.flagged ? 10 : 0 }}>
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
-                              <span style={{ fontSize:10, fontWeight:700, color: r.flagged ? "#C53030" : "#276749" }}>{r.flagged ? "⚠ MATCHED" : "✓ CLEAN"}</span>
-                              <span style={{ fontSize:9, color:"#718096", textTransform:"uppercase", letterSpacing:"0.06em" }}>Phrase {i+1}</span>
+                              <span style={{ fontSize:10, fontWeight:700, color: r.flagged ? "#FF5252" : "#4CAF50" }}>{r.flagged ? "⚠ MATCHED" : "✓ CLEAN"}</span>
+                              <span style={{ fontSize:9, color:"var(--grey3)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Phrase {i+1}</span>
                             </div>
-                            <div style={{ fontSize:11, color:"#4A5568", fontStyle:"italic", lineHeight:1.6, borderLeft:"2px solid " + (r.flagged ? "#FEB2B2" : "#9AE6B4"), paddingLeft:8 }}>
+                            <div style={{ fontSize:11, color:"var(--grey2)", fontStyle:"italic", lineHeight:1.6, borderLeft:"2px solid " + (r.flagged ? "#FEB2B2" : "#9AE6B4"), paddingLeft:8 }}>
                               "{r.phrase.slice(0, 120)}{r.phrase.length > 120 ? "..." : ""}"
                             </div>
                           </div>
                         </div>
-                        {r.error && <div style={{ fontSize:11, color:"#DD6B20", marginTop:4 }}>{r.error}</div>}
+                        {r.error && <div style={{ fontSize:11, color:"#FF9800", marginTop:4 }}>{r.error}</div>}
                         {r.flagged && r.matches.length > 0 && (
                           <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:4 }}>
                             {r.matches.slice(0, 2).map((m, j) => (
-                              <div key={j} style={{ background:"#fff", borderRadius:7, padding:"8px 10px", border:"1px solid #E2E8F0" }}>
+                              <div key={j} style={{ background:"rgba(255,255,255,0.04)", borderRadius:7, padding:"8px 10px" }}>
                                 <a href={m.url} target="_blank" rel="noopener noreferrer"
-                                  style={{ fontSize:10, color:"#3182CE", textDecoration:"none", wordBreak:"break-all", display:"block", marginBottom:3 }}>
+                                  style={{ fontSize:10, color:"#64B5F6", textDecoration:"none", wordBreak:"break-all", display:"block", marginBottom:3 }}>
                                   🔗 {m.url.slice(0, 80)}{m.url.length > 80 ? "..." : ""}
                                 </a>
-                                <div style={{ fontSize:10, color:"#718096", lineHeight:1.5 }}>{m.snippet}</div>
+                                <div style={{ fontSize:10, color:"var(--grey3)", lineHeight:1.5 }}>{m.snippet}</div>
                               </div>
                             ))}
                           </div>
@@ -3936,32 +3936,32 @@ function SupervisorDashboard({ supervisor, onBack }) {
             const sectionComment = sectionComments[i] || "";
             const hasDraft = drafts[i] && drafts[i].trim().length > 0;
             return (
-              <div key={i} style={{ marginBottom:24, background:"#fff", border:"1px solid #E2E8F0", borderRadius:14, overflow:"hidden", boxShadow:"0 1px 8px rgba(0,0,0,0.06)" }}>
+              <div key={i} style={{ marginBottom:24, background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, overflow:"hidden" }}>
 
                 {/* Section header */}
-                <div style={{ padding:"12px 18px", borderBottom:"1px solid #EEF2F6", display:"flex", alignItems:"center", gap:8, background:"#F8FAFC" }}>
+                <div style={{ padding:"12px 18px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:8 }}>
                   <span style={{ fontFamily:"var(--font-d)", fontSize:12, fontWeight:700, color:"var(--teal)" }}>{activeChapter}.{i+1}</span>
-                  <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"#1A2E42" }}>{s.name}</span>
-                  <span style={{ fontSize:10, color: hasDraft ? "#276749" : "#718096", marginLeft:"auto", fontWeight:600 }}>
+                  <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)" }}>{s.name}</span>
+                  <span style={{ fontSize:10, color: hasDraft ? "#4CAF50" : "var(--grey3)", marginLeft:"auto", fontWeight:600 }}>
                     {hasDraft ? drafts[i].split(/\s+/).filter(Boolean).length + " words" : "Not written"}
                   </span>
                   {sectionComment.trim() && (
-                    <span style={{ background:"#FFFBEB", border:"1px solid #F6E05E", borderRadius:10, padding:"2px 8px", fontSize:10, color:"#B7791F", fontWeight:700 }}>Commented</span>
+                    <span style={{ background:"rgba(255,193,7,0.15)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:10, padding:"2px 8px", fontSize:10, color:"#FFC107", fontWeight:700 }}>Commented</span>
                   )}
                 </div>
 
                 {/* Student text — read-only */}
-                <div style={{ padding:"18px", borderBottom:"1px solid #EEF2F6", position:"relative" }}>
+                <div style={{ background:"#ffffff", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
                   {hasDraft ? (
                     <div
                       id={"sec-text-" + i + "-" + activeChapter}
                       onMouseUp={() => handleTextSelection(i)}
                       onTouchEnd={() => handleTouchSelection(i)}
-                      style={{ fontSize:14, color:"#1A2E42", lineHeight:2.0, whiteSpace:"pre-wrap", userSelect:"text", WebkitUserSelect:"text", cursor:"text", fontFamily:"Georgia, 'Times New Roman', serif" }}>
+                      style={{ padding:"20px 26px", fontSize:15, color:"#111827", lineHeight:2.0, whiteSpace:"pre-wrap", userSelect:"text", WebkitUserSelect:"text", cursor:"text", fontFamily:"Georgia, 'Times New Roman', serif" }}>
                       {drafts[i]}
                     </div>
                   ) : (
-                    <div style={{ fontSize:12, color:"#718096", fontStyle:"italic" }}>No content submitted for this section.</div>
+                    <div style={{ padding:"18px 26px", fontSize:12, color:"#9ca3af", fontStyle:"italic" }}>No content submitted for this section.</div>
                   )}
                   {hasDraft && (
                     <div style={{ fontSize:10, color:"#A0AEC0", marginTop:8, fontStyle:"italic" }}>
@@ -3972,7 +3972,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
                 {/* Mobile comment button */}
                 {!activeHighlight && hasDraft && (
-                  <div style={{ padding:"6px 18px 8px", display:"flex", justifyContent:"flex-end", background:"#FAFBFC" }}>
+                  <div style={{ padding:"6px 16px 8px", display:"flex", justifyContent:"flex-end" }}>
                     <button
                       onClick={() => {
                         const sel = window.getSelection();
@@ -3987,9 +3987,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
                           setHlComment("");
                         }
                       }}
-                      style={{ background:"transparent", border:"1px solid #E2E8F0", borderRadius:6, padding:"5px 12px", color:"#718096", fontSize:10, cursor:"pointer", fontFamily:"var(--font-d)", fontWeight:600, transition:"all 0.15s" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#FFC107"; e.currentTarget.style.color = "#B7791F"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#E2E8F0"; e.currentTarget.style.color = "#718096"; }}>
+                      style={{ background:"transparent", border:"1px solid rgba(255,193,7,0.25)", borderRadius:6, padding:"4px 10px", color:"rgba(255,193,7,0.7)", fontSize:10, cursor:"pointer", fontFamily:"var(--font-d)", fontWeight:600, transition:"all 0.15s" }}
+                      >
                       + Add highlight comment
                     </button>
                   </div>
@@ -3997,15 +3996,15 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
                 {/* Highlight popup */}
                 {activeHighlight && activeHighlight.sectionIdx === i && (
-                  <div style={{ margin:"0 18px 14px", background:"#FFFBEB", border:"1px solid #F6E05E", borderRadius:10, padding:"13px 15px" }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:"#B7791F", marginBottom:7 }}>📌 Commenting on: "{activeHighlight.selectedText.slice(0,60)}{activeHighlight.selectedText.length > 60 ? "..." : ""}"</div>
+                  <div style={{ margin:"0 18px 14px", background:"rgba(255,193,7,0.08)", border:"1px solid rgba(255,193,7,0.35)", borderRadius:10, padding:"12px 14px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", marginBottom:6 }}>📌 Commenting on: "{activeHighlight.selectedText.slice(0,60)}{activeHighlight.selectedText.length > 60 ? "..." : ""}"</div>
                     <textarea
                       value={hlComment}
                       onChange={e => setHlComment(e.target.value)}
                       placeholder="What needs to change about this? Be specific..."
                       rows={2}
                       autoFocus
-                      style={{ width:"100%", background:"#fff", border:"1px solid #F6E05E", borderRadius:7, padding:"8px 10px", color:"#2D3748", fontSize:12, fontFamily:"var(--font-b)", resize:"none", outline:"none", boxSizing:"border-box" }}
+                      style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:7, padding:"8px 10px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", resize:"none", outline:"none", boxSizing:"border-box" }}
                     />
                     <div style={{ display:"flex", gap:8, marginTop:9 }}>
                       <button onClick={() => { addHighlight(i, activeHighlight.selectedText, hlComment); setActiveHighlight(null); setHlComment(""); window.getSelection().removeAllRanges(); }}
@@ -4013,7 +4012,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
                         Add comment
                       </button>
                       <button onClick={() => { setActiveHighlight(null); setHlComment(""); window.getSelection().removeAllRanges(); }}
-                        style={{ background:"transparent", color:"#718096", border:"1px solid #E2E8F0", borderRadius:7, padding:"7px 14px", fontSize:12, cursor:"pointer" }}>
+                        style={{ background:"transparent", color:"var(--grey3)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"7px 14px", fontSize:12, cursor:"pointer" }}>
                         Cancel
                       </button>
                     </div>
@@ -4023,19 +4022,19 @@ function SupervisorDashboard({ supervisor, onBack }) {
                 {/* Existing highlights */}
                 {(highlights[i] || []).length > 0 && (
                   <div style={{ margin:"0 18px 14px", display:"flex", flexDirection:"column", gap:7 }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:"#B7791F", letterSpacing:"0.08em" }}>📌 HIGHLIGHT COMMENTS</div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em" }}>📌 HIGHLIGHT COMMENTS</div>
                     {(highlights[i] || []).map(function(hl) {
                       return (
-                        <div key={hl.id} style={{ background:"#FFFBEB", border:"1px solid #F6E05E", borderRadius:8, padding:"10px 12px" }}>
-                          <div style={{ fontSize:11, color:"#B7791F", fontStyle:"italic", marginBottom:5 }}>{hl.text.slice(0,80)}{hl.text.length > 80 ? "..." : ""}</div>
+                        <div key={hl.id} style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:8, padding:"10px 12px" }}>
+                          <div style={{ fontSize:11, color:"rgba(255,193,7,0.8)", fontStyle:"italic", marginBottom:5 }}>{hl.text.slice(0,80)}{hl.text.length > 80 ? "..." : ""}</div>
                           <input
                             value={hl.comment}
                             onChange={e => updateHighlightComment(i, hl.id, e.target.value)}
                             placeholder="Add comment on this highlight..."
-                            style={{ width:"100%", background:"#fff", border:"1px solid #F6E05E", borderRadius:6, padding:"6px 9px", color:"#2D3748", fontSize:12, fontFamily:"var(--font-b)", outline:"none", boxSizing:"border-box" }}
+                            style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:6, padding:"6px 9px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", outline:"none", boxSizing:"border-box" }}
                           />
                           <button onClick={() => removeHighlight(i, hl.id)}
-                            style={{ marginTop:6, background:"transparent", color:"#E53E3E", border:"none", fontSize:11, cursor:"pointer", padding:0, fontWeight:600 }}>
+                            style={{ marginTop:6, background:"transparent", color:"rgba(255,112,67,0.7)", border:"none", fontSize:11, cursor:"pointer", padding:0, fontWeight:600 }}>
                             ✕ Remove
                           </button>
                         </div>
@@ -4045,8 +4044,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
                 )}
 
                 {/* Supervisor section comment box */}
-                <div style={{ padding:"14px 18px", background:"#FFFBEB", borderTop:"1px solid #FEEBC8" }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#B7791F", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:8 }}>
+                <div style={{ padding:"12px 16px", background:"rgba(255,193,7,0.03)", borderTop:"1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:7 }}>
                     💬 Your comment on {activeChapter}.{i+1}
                   </div>
                   <textarea
@@ -4054,25 +4053,25 @@ function SupervisorDashboard({ supervisor, onBack }) {
                     onChange={e => { setSectionComments(prev => ({ ...prev, [i]: e.target.value })); setFeedbackSaved(false); }}
                     placeholder={"Comment on this section... e.g. 'Expand the background context. The argument in paragraph 2 needs a citation.'"}
                     rows={3}
-                    style={{ width:"100%", background:"#fff", border:"1px solid #F6E05E", borderRadius:8, padding:"10px 12px", color:"#2D3748", fontSize:13, fontFamily:"var(--font-b)", lineHeight:1.7, resize:"vertical", outline:"none", boxSizing:"border-box", transition:"border-color 0.2s" }}
-                    onFocus={e => { e.target.style.borderColor = "#ECC94B"; e.target.style.boxShadow = "0 0 0 3px rgba(236,201,75,0.15)"; }}
-                    onBlur={e => { e.target.style.borderColor = "#F6E05E"; e.target.style.boxShadow = "none"; }}
+                    style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:8, padding:"10px 12px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", lineHeight:1.7, resize:"vertical", outline:"none", boxSizing:"border-box", transition:"border-color 0.2s" }}
+                    onFocus={e => { e.target.style.borderColor = "rgba(255,193,7,0.5)"; }}
+                    onBlur={e => { e.target.style.borderColor = "rgba(255,193,7,0.2)"; }}
                   />
                   {sectionComment.trim() && (
-                    <div style={{ fontSize:10, color:"#B7791F", marginTop:4, textAlign:"right" }}>
+                    <div style={{ fontSize:10, color:"var(--grey3)", marginTop:4, textAlign:"right" }}>
                       {sectionComment.trim().split(/\s+/).length} words
                     </div>
                   )}
                 </div>
               </div>
             );
-          }) : <div style={{ color:"#718096", fontSize:13 }}>Chapter data unavailable.</div>}
+          }) : <div style={{ color:"var(--grey3)", fontSize:13 }}>Chapter data unavailable.</div>}
 
           {/* Overall feedback */}
-          <div style={{ marginTop:4, background:"#fff", border:"1px solid #E2E8F0", borderRadius:14, overflow:"hidden", boxShadow:"0 1px 8px rgba(0,0,0,0.06)" }}>
-            <div style={{ padding:"14px 18px", borderBottom:"1px solid #EEF2F6", background:"#F8FAFC" }}>
+          <div style={{ marginTop:4, background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, overflow:"hidden" }}>
+            <div style={{ padding:"12px 18px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase" }}>Overall feedback to student</div>
-              <div style={{ fontSize:11, color:"#8892A0", marginTop:2 }}>This message will be visible to the student under their chapter submission.</div>
+              <div style={{ fontSize:11, color:"var(--grey3)", marginTop:2 }}>This message will be visible to the student under their chapter submission.</div>
             </div>
             <div style={{ padding:"16px 18px" }}>
               <textarea
@@ -4080,15 +4079,15 @@ function SupervisorDashboard({ supervisor, onBack }) {
                 onChange={e => { setFeedback(e.target.value); setFeedbackSaved(false); }}
                 placeholder={"Write your overall feedback for Chapter " + activeChapter + " here..."}
                 rows={5}
-                style={{ width:"100%", background:"#fff", border:"1px solid #E2E8F0", borderRadius:8, padding:"12px 14px", color:"#2D3748", fontSize:13, fontFamily:"var(--font-b)", lineHeight:1.8, resize:"vertical", outline:"none", boxSizing:"border-box", transition:"all 0.2s" }}
-                onFocus={e => { e.target.style.borderColor = "rgba(0,201,167,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(0,201,167,0.1)"; }}
-                onBlur={e => { e.target.style.borderColor = "#E2E8F0"; e.target.style.boxShadow = "none"; }}
+                style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"10px 12px", color:"var(--white)", fontSize:13, fontFamily:"var(--font-b)", lineHeight:1.8, resize:"vertical", outline:"none", boxSizing:"border-box", transition:"all 0.2s" }}
+                onFocus={e => { e.target.style.borderColor = "rgba(0,201,167,0.4)"; }}
+                onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.08)"; }}
               />
             </div>
           </div>
 
           <button onClick={saveAll}
-            style={{ width:"100%", marginTop:16, marginBottom:24, background: feedbackSaved ? "rgba(76,175,80,0.1)" : "var(--teal)", color: feedbackSaved ? "#276749" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.3)" : "none", borderRadius:12, padding:"15px", fontFamily:"var(--font-d)", fontWeight:800, fontSize:15, cursor:"pointer", transition:"all 0.2s", boxShadow: feedbackSaved ? "none" : "0 4px 16px rgba(0,201,167,0.3)" }}
+            style={{ width:"100%", marginTop:16, marginBottom:24, background: feedbackSaved ? "rgba(76,175,80,0.15)" : "var(--teal)", color: feedbackSaved ? "#4CAF50" : "var(--navy)", border: feedbackSaved ? "1px solid rgba(76,175,80,0.3)" : "none", borderRadius:10, padding:"14px", fontFamily:"var(--font-d)", fontWeight:800, fontSize:15, cursor:"pointer", transition:"all 0.2s", boxShadow: feedbackSaved ? "none" : "0 4px 16px rgba(0,201,167,0.3)" }}
             onMouseEnter={e => { if (!feedbackSaved) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,201,167,0.4)"; } }}
             onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = feedbackSaved ? "none" : "0 4px 16px rgba(0,201,167,0.3)"; }}>
             {feedbackSaved ? "✓ All comments saved" : "Save all comments →"}
