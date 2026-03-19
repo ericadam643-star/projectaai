@@ -2633,17 +2633,277 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
   const statusLabel = { pending:"Pending review", approved:"Approved ✓", minor:"Minor revision", major:"Major revision" };
   const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"18px 20px", boxShadow:"0 2px 16px rgba(0,0,0,0.28)" };
 
-  const userKey = project && project.studentName ? project.studentName.trim().toLowerCase().replace(/[^a-z0-9]/gi,"_") : "student";
+  const { isMobile, isDesktop } = useBreakpoint();
   const initials = firstName.slice(0,2).toUpperCase();
   const feedbackCount = submittedNums.filter(n => feedback[n]).length;
-  const aiScore = feedbackCount > 0 ? Math.min(99, 70 + feedbackCount * 8) : null;
+  const userKey = project && project.studentName ? project.studentName.trim().toLowerCase().replace(/[^a-z0-9]/gi,"_") : "student";
 
+  // ── Shared sub-components ──────────────────────────────────────────────────
+  const FeedbackBanner = () => !loadingFeedback && hasFeedback.length > 0 ? (
+    <div style={{ background:"#FFF8E7", border:"1px solid #FFE082", borderRadius:14, padding:"14px 16px", marginBottom:16, cursor:"pointer" }}
+      className="fu"
+      onClick={() => {
+        const n = hasFeedback[0];
+        const ch = CHAPTERS.find(c => c.num === n);
+        const fbSavedAt = feedback[n] && (feedback[n].savedAt || feedback[n].resubmittedAt || "viewed");
+        setReadFeedback(prev => {
+          const updated = { ...prev, [n]: fbSavedAt };
+          try { localStorage.setItem("pjt_" + "read_fb_" + (project.studentName||"").trim().toLowerCase().replace(/\s+/g,"_"), JSON.stringify(updated)); } catch(e) {}
+          return updated;
+        });
+        onViewSubmission && onViewSubmission(ch, feedback[n]);
+      }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:20 }}>💬</span>
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:"#8B6914" }}>Supervisor Feedback Ready</div>
+            <div style={{ fontSize:11, color:"#9E7A1A" }}>{hasFeedback.length} chapter{hasFeedback.length > 1 ? "s" : ""} reviewed</div>
+          </div>
+        </div>
+        <span style={{ fontSize:12, color:"#B8860B", fontWeight:700 }}>View →</span>
+      </div>
+    </div>
+  ) : null;
+
+  const StatCards = ({ compact }) => (
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap: compact ? 10 : 14, marginBottom:16 }} className="fu">
+      {[
+        { icon:"👨‍🏫", label:"Supervisor", val: project.supervisorName ? project.supervisorName.replace("Code: ","").split(" ").slice(0,2).join(" ") : "Not linked", badge: project.supervisorName ? (hasFeedback.length > 0 ? hasFeedback.length + " New" : "Connected") : null, badgeColor: hasFeedback.length > 0 ? "#FF7043" : "var(--teal)", badgeBg: hasFeedback.length > 0 ? "rgba(255,112,67,0.1)" : "rgba(0,201,167,0.08)" },
+        { icon:"📖", label:"Next Chapter", val: nextChapter ? "Ch." + nextChapter.num + " Draft" : "All done!", badge: nextChapter ? (5-submittedCount) + " left" : null, badgeColor:"#FF7043", badgeBg:"rgba(255,112,67,0.1)" },
+        { icon:"✍️", label:"Words Written", val: totalWords > 0 ? totalWords.toLocaleString() : "0", badge: submittedCount + "/5 done", badgeColor:"var(--teal)", badgeBg:"rgba(0,201,167,0.08)" },
+      ].map((s, i) => (
+        <div key={i} style={{ background:"#fff", borderRadius:16, padding: compact ? "14px 12px" : "18px 16px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
+          <div style={{ fontSize: compact ? 20 : 24, marginBottom:6 }}>{s.icon}</div>
+          <div style={{ fontSize: compact ? 11 : 12, fontWeight:700, color:"#1A2E42", marginBottom:3, lineHeight:1.3 }}>{s.label}</div>
+          <div style={{ fontSize: compact ? 10 : 11, color:"#8892A0", lineHeight:1.3, marginBottom:6 }}>{s.val}</div>
+          {s.badge && <div style={{ fontSize:9, fontWeight:700, color:s.badgeColor, background:s.badgeBg, borderRadius:99, padding:"2px 8px", display:"inline-block" }}>{s.badge}</div>}
+        </div>
+      ))}
+    </div>
+  );
+
+  const TipBanner = () => (
+    <div key={tipIdx}
+      style={{ background:"linear-gradient(135deg, #0D3B33 0%, #0B2A2A 100%)", borderRadius:16, padding:"16px 18px", marginBottom:16, display:"flex", alignItems:"center", gap:14, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.15)", transition:"all 0.2s" }}
+      onClick={() => nextChapter && onGoToChapter(nextChapter)}
+      className="fi"
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ""; }}>
+      <div style={{ width:44, height:44, borderRadius:12, background:"rgba(0,201,167,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🤖</div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>AI Writing Tip</div>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", lineHeight:1.55 }}>{TIPS[tipIdx]}</div>
+      </div>
+      <div style={{ width:32, height:32, borderRadius:99, background:"rgba(0,201,167,0.15)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"var(--teal)", fontSize:16 }}>›</div>
+    </div>
+  );
+
+  const ChaptersList = () => (
+    <div style={{ background:"#fff", borderRadius:16, padding:"18px 16px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
+      <div style={{ fontSize:10, fontWeight:700, color:"#8892A0", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>All Chapters</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {CHAPTERS.map(ch => {
+          const done = !!submitted[ch.num];
+          const isNext = nextChapter && nextChapter.num === ch.num;
+          const fb = feedback[ch.num];
+          const hasNewFb = hasFeedback.includes(ch.num);
+          return (
+            <button key={ch.num} onClick={() => onGoToChapter(ch)}
+              style={{ display:"flex", alignItems:"center", gap:12, background: isNext ? "rgba(0,201,167,0.06)" : "transparent", border:"1px solid " + (isNext ? "rgba(0,201,167,0.2)" : "rgba(0,0,0,0.06)"), borderRadius:12, padding:"12px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.2)"; e.currentTarget.style.transform = "translateX(2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isNext ? "rgba(0,201,167,0.06)" : "transparent"; e.currentTarget.style.borderColor = isNext ? "rgba(0,201,167,0.2)" : "rgba(0,0,0,0.06)"; e.currentTarget.style.transform = ""; }}>
+              <div style={{ width:38, height:38, borderRadius:10, background: done ? "var(--teal)" : isNext ? "rgba(0,201,167,0.1)" : "#F0F4F8", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:13, color: done ? "#0B2A2A" : isNext ? "var(--teal)" : "#8892A0", flexShrink:0 }}>
+                {done ? "✓" : ch.num}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:"#1A2E42", marginBottom:2 }}>Chapter {ch.num}: {ch.title}</div>
+                <div style={{ fontSize:11, color:"#8892A0" }}>{ch.desc.slice(0,60)}…</div>
+              </div>
+              {hasNewFb && <span style={{ fontSize:10, fontWeight:700, color:"#B8860B", background:"#FFF3CD", borderRadius:99, padding:"3px 9px", flexShrink:0 }}>New</span>}
+              {done && !hasNewFb && fb && fb.status !== "pending" && (
+                <span style={{ fontSize:10, fontWeight:700, color: statusColor[fb.status], background: statusColor[fb.status] + "22", borderRadius:99, padding:"3px 9px", flexShrink:0 }}>
+                  {fb.status === "approved" ? "✓ OK" : fb.status === "minor" ? "Revise" : "Redo"}
+                </span>
+              )}
+              {isNext && !done && <span style={{ fontSize:13, color:"var(--teal)", fontWeight:700, flexShrink:0 }}>→</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const MilestonesCard = () => (
+    <div style={{ background:"rgba(0,201,167,0.06)", border:"1.5px solid rgba(0,201,167,0.2)", borderRadius:16, padding:"18px 16px" }}>
+      <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Milestones</div>
+      {CHAPTERS.map(ch => {
+        const done = !!submitted[ch.num];
+        const fb = feedback[ch.num];
+        const dotColor = done ? (fb ? statusColor[fb.status] || "#4CAF50" : "#4CAF50") : "#E0E7EF";
+        return (
+          <div key={ch.num} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+            <span style={{ width:9, height:9, borderRadius:"50%", background:dotColor, flexShrink:0, display:"inline-block", boxShadow: done ? "0 0 6px " + dotColor + "88" : "none" }} />
+            <span style={{ fontSize:12, color: done ? "#1A2E42" : "#8892A0", fontWeight: done ? 600 : 400 }}>
+              {ch.title}
+              {done && fb ? (fb.status === "approved" ? " ✓" : fb.status === "minor" ? " ~" : fb.status === "major" ? " !" : "") : done ? " ✓" : ""}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const ResourcesCard = () => (
+    <div style={{ background:"#fff", borderRadius:16, padding:"18px 16px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
+      <div style={{ fontSize:10, fontWeight:700, color:"#8892A0", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Resources</div>
+      {[
+        { icon:"📚", label:"Research Library", sub:"Books, papers & journals" },
+        { icon:"🔧", label:"Citation Guide",   sub:"APA, Harvard, MLA formats" },
+        { icon:"🎓", label:"Writing Tips",     sub:"Academic writing guides" },
+      ].map((r, i) => (
+        <button key={i} onClick={onGoToResources}
+          style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"none", border:"none", borderBottom: i < 2 ? "1px solid #F0F4F8" : "none", padding:"10px 0", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.04)"; e.currentTarget.style.paddingLeft = "6px"; e.currentTarget.style.borderRadius = "8px"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.paddingLeft = "0"; }}>
+          <span style={{ fontSize:20, flexShrink:0 }}>{r.icon}</span>
+          <div>
+            <div style={{ fontSize:12, color:"#1A2E42", fontWeight:600 }}>{r.label}</div>
+            <div style={{ fontSize:10, color:"#8892A0" }}>{r.sub}</div>
+          </div>
+          <span style={{ marginLeft:"auto", fontSize:12, color:"#C4C9D0" }}>›</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  // ── DESKTOP LAYOUT ─────────────────────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <div style={{ minHeight:"100vh", background:"#F0F4F8", fontFamily:"var(--font-b)" }}>
+
+        {/* Desktop top nav */}
+        <div style={{ background:"linear-gradient(135deg, #0B2A2A 0%, #0D3B33 100%)", padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64, position:"sticky", top:0, zIndex:20, boxShadow:"0 2px 20px rgba(0,0,0,0.3)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+            <ProjectaIcon size={32} dark={false} />
+            <div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"-0.2px" }}>projecta</div>
+              <div style={{ fontSize:10, color:"rgba(0,201,167,0.6)", marginTop:1 }}>{project.dept} · {project.uni}</div>
+            </div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={onGoToChapters} className="btn-teal-outline" style={{ fontSize:12 }}>📚 Chapters</button>
+            <button onClick={onGoToResources} className="btn-teal-outline" style={{ fontSize:12 }}>🔧 Resources</button>
+            <NotificationBell userKey={userKey} />
+            <button onClick={onSignOut} title="Sign out"
+              style={{ width:38, height:38, borderRadius:99, background:"var(--teal)", border:"2px solid rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:13, color:"#0B2A2A", cursor:"pointer" }}>
+              {initials}
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop hero banner */}
+        <div style={{ background:"linear-gradient(135deg, #0B2A2A 0%, #0D3B33 60%, #083028 100%)", padding:"36px 40px 48px", position:"relative", overflow:"hidden" }}>
+          <div style={{ position:"absolute", top:-60, right:120, width:280, height:280, borderRadius:"50%", background:"rgba(0,201,167,0.07)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", bottom:-40, right:-20, width:180, height:180, borderRadius:"50%", background:"rgba(0,201,167,0.05)", pointerEvents:"none" }} />
+          <div style={{ maxWidth:1200, margin:"0 auto", display:"grid", gridTemplateColumns:"1fr auto", gap:40, alignItems:"center" }}>
+            {/* Left: greeting + project */}
+            <div>
+              <div style={{ fontSize:13, color:"rgba(0,201,167,0.7)", marginBottom:6 }}>Good morning,</div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:32, fontWeight:900, color:"#fff", letterSpacing:"-0.5px", marginBottom:8 }}>
+                {project.studentName} 🎓
+              </div>
+              <div style={{ fontSize:14, color:"rgba(255,255,255,0.55)", lineHeight:1.5, maxWidth:560, marginBottom:20 }}>{project.topic}</div>
+              {/* Progress bar */}
+              <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+                <div style={{ flex:1, maxWidth:400 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                    <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>{submittedCount} of {CHAPTERS.length} chapters submitted</span>
+                    <span style={{ fontSize:11, color:"rgba(0,201,167,0.7)", fontWeight:600 }}>{totalWords.toLocaleString()} words</span>
+                  </div>
+                  <div style={{ background:"rgba(255,255,255,0.1)", borderRadius:99, height:8, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:pct + "%", background:"linear-gradient(90deg, var(--teal3), var(--teal))", borderRadius:99, transition:"width 0.9s cubic-bezier(0.16,1,0.3,1)", boxShadow:"0 0 12px rgba(0,201,167,0.5)" }} />
+                  </div>
+                </div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:38, fontWeight:900, color:"var(--teal)", lineHeight:1 }}>{pct}<span style={{ fontSize:16, color:"rgba(255,255,255,0.3)" }}>%</span></div>
+              </div>
+            </div>
+            {/* Right: CTA */}
+            {nextChapter && (
+              <button onClick={() => onGoToChapter(nextChapter)}
+                style={{ background:"var(--teal)", border:"none", borderRadius:18, padding:"20px 28px", cursor:"pointer", textAlign:"center", minWidth:190, boxShadow:"0 8px 28px rgba(0,201,167,0.35)", transition:"all 0.2s", flexShrink:0 }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(0,201,167,0.45)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 8px 28px rgba(0,201,167,0.35)"; }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>✍️</div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:800, color:"#0B2A2A", marginBottom:4 }}>
+                  {submittedCount === 0 ? "Start Writing" : "Continue Writing"}
+                </div>
+                <div style={{ fontSize:11, color:"rgba(11,42,42,0.6)", fontWeight:600 }}>Ch.{nextChapter.num}: {nextChapter.title}</div>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop body — 2-col layout */}
+        <div style={{ maxWidth:1200, margin:"0 auto", padding:"28px 40px 48px", display:"grid", gridTemplateColumns:"1fr 340px", gap:24 }}>
+
+          {/* LEFT COLUMN */}
+          <div>
+            <FeedbackBanner />
+            <StatCards compact={false} />
+            <TipBanner />
+            <ChaptersList />
+          </div>
+
+          {/* RIGHT SIDEBAR */}
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+            {/* Supervisor card */}
+            <div style={{ background:"#fff", borderRadius:16, padding:"20px 18px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"#8892A0", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Supervisor</div>
+              {project.supervisorName ? (
+                <>
+                  <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(0,201,167,0.1)", border:"2px solid rgba(0,201,167,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:16, color:"var(--teal)", flexShrink:0 }}>
+                      {project.supervisorName.replace("Code: ","").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:700, color:"#1A2E42", lineHeight:1.3 }}>{project.supervisorName.replace("Code: ","")}</div>
+                      <div style={{ fontSize:11, color:"#8892A0" }}>{project.dept}</div>
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ width:7, height:7, borderRadius:"50%", background:"var(--teal)", display:"inline-block" }} />
+                    <span style={{ fontSize:11, color:"var(--teal)", fontWeight:600 }}>Connected</span>
+                    {hasFeedback.length > 0 && <span style={{ marginLeft:"auto", fontSize:10, fontWeight:700, color:"#B8860B", background:"#FFF3CD", borderRadius:99, padding:"2px 8px" }}>{hasFeedback.length} new feedback</span>}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize:12, color:"#8892A0", lineHeight:1.65 }}>No supervisor connected yet. Enter a supervisor code to link up.</div>
+              )}
+            </div>
+
+            <MilestonesCard />
+            <ResourcesCard />
+
+            {/* Quick sign-out link */}
+            <button onClick={onSignOut} style={{ background:"none", border:"1px solid rgba(0,0,0,0.08)", borderRadius:10, padding:"10px 0", color:"#8892A0", fontSize:12, cursor:"pointer", fontWeight:500, transition:"all 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#FF5C5C"; e.currentTarget.style.borderColor = "rgba(255,92,92,0.3)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#8892A0"; e.currentTarget.style.borderColor = "rgba(0,0,0,0.08)"; }}>
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MOBILE / TABLET LAYOUT ──────────────────────────────────────────────────
   return (
     <div style={{ minHeight:"100vh", background:"#F0F4F8", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)", maxWidth:480, margin:"0 auto", position:"relative" }}>
 
-      {/* ── TEAL HEADER ── */}
+      {/* Teal header */}
       <div style={{ background:"linear-gradient(135deg, #0B2A2A 0%, #0D3B33 50%, #0A3030 100%)", padding:"52px 22px 28px", position:"relative", overflow:"hidden" }}>
-        {/* Decorative circles */}
         <div style={{ position:"absolute", top:-40, right:-40, width:160, height:160, borderRadius:"50%", background:"rgba(0,201,167,0.12)", pointerEvents:"none" }} />
         <div style={{ position:"absolute", top:20, right:30, width:80, height:80, borderRadius:"50%", background:"rgba(0,201,167,0.08)", pointerEvents:"none" }} />
 
@@ -2652,25 +2912,17 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
           <div>
             <div style={{ fontSize:13, color:"rgba(0,201,167,0.7)", marginBottom:2 }}>Good morning,</div>
             <div style={{ fontFamily:"var(--font-d)", fontSize:22, fontWeight:800, color:"#fff", letterSpacing:"-0.3px" }}>
-              {firstName} {project.studentName && project.studentName.split(" ").length > 1 ? project.studentName.split(" ").slice(1).join(" ").split(" ")[0] : ""} 
-              <span style={{ marginLeft:4 }}>🎓</span>
+              {firstName} <span style={{ marginLeft:2 }}>🎓</span>
             </div>
-            <div style={{ fontSize:11, color:"rgba(0,201,167,0.6)", marginTop:3 }}>
-              {project.dept} · Final Year
-            </div>
+            <div style={{ fontSize:11, color:"rgba(0,201,167,0.6)", marginTop:3 }}>{project.dept} · Final Year</div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            {/* Notification bell */}
             <div style={{ position:"relative" }}>
-              <button onClick={() => {}}
-                style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:99, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
+              <button onClick={() => {}} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:99, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}>
                 <span style={{ fontSize:16 }}>🔔</span>
               </button>
-              {hasFeedback.length > 0 && (
-                <span style={{ position:"absolute", top:2, right:2, width:9, height:9, background:"#FF5C5C", borderRadius:"50%", border:"2px solid #0D3B33" }} />
-              )}
+              {hasFeedback.length > 0 && <span style={{ position:"absolute", top:2, right:2, width:9, height:9, background:"#FF5C5C", borderRadius:"50%", border:"2px solid #0D3B33" }} />}
             </div>
-            {/* Avatar */}
             <button onClick={onSignOut} title="Sign out"
               style={{ width:42, height:42, borderRadius:99, background:"var(--teal)", border:"2.5px solid rgba(255,255,255,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:14, color:"#0B2A2A", cursor:"pointer" }}>
               {initials}
@@ -2678,7 +2930,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
           </div>
         </div>
 
-        {/* Current project card */}
+        {/* Project card */}
         <div style={{ background:"rgba(255,255,255,0.08)", borderRadius:16, padding:"16px 18px", backdropFilter:"blur(10px)" }}>
           <div style={{ fontSize:10, fontWeight:700, color:"rgba(0,201,167,0.8)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:8 }}>Current Project</div>
           <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:12 }}>
@@ -2688,7 +2940,6 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
               <div style={{ fontSize:9, color:"rgba(255,255,255,0.4)", marginTop:2 }}>Complete</div>
             </div>
           </div>
-          {/* Progress bar */}
           <div style={{ background:"rgba(255,255,255,0.12)", borderRadius:99, height:6, overflow:"hidden", marginBottom:8 }}>
             <div style={{ height:"100%", width:pct + "%", background:"linear-gradient(90deg, var(--teal3), var(--teal))", borderRadius:99, transition:"width 0.9s cubic-bezier(0.16,1,0.3,1)", boxShadow:"0 0 10px rgba(0,201,167,0.5)" }} />
           </div>
@@ -2699,10 +2950,8 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
         </div>
       </div>
 
-      {/* ── SCROLLABLE CONTENT ── */}
+      {/* Scrollable content */}
       <div style={{ flex:1, overflowY:"auto", padding:"18px 16px 90px" }}>
-
-        {/* Continue Writing CTA */}
         {nextChapter && (
           <button onClick={() => onGoToChapter(nextChapter)}
             style={{ width:"100%", background:"linear-gradient(135deg, #0B2A2A, #0D3B33)", border:"none", borderRadius:16, padding:"16px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:16, boxShadow:"0 4px 20px rgba(0,0,0,0.2)", transition:"all 0.2s" }}
@@ -2710,198 +2959,47 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
             onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.2)"; }}
             className="fu">
             <div style={{ textAlign:"left" }}>
-              <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:800, color:"#fff", marginBottom:2 }}>
-                {submittedCount === 0 ? "Start Writing" : "Continue Writing"}
-              </div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:800, color:"#fff", marginBottom:2 }}>{submittedCount === 0 ? "Start Writing" : "Continue Writing"}</div>
               <div style={{ fontSize:12, color:"rgba(0,201,167,0.7)" }}>Chapter {nextChapter.num}: {nextChapter.title} →</div>
             </div>
             <div style={{ width:40, height:40, borderRadius:99, background:"var(--teal)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:900, fontSize:18, color:"#0B2A2A", flexShrink:0 }}>→</div>
           </button>
         )}
 
-        {/* Feedback alert banner */}
-        {!loadingFeedback && hasFeedback.length > 0 && (
-          <div style={{ background:"#FFF8E7", border:"1px solid #FFE082", borderRadius:14, padding:"14px 16px", marginBottom:16, cursor:"pointer" }}
-            className="fu"
-            onClick={() => {
-              const n = hasFeedback[0];
-              const ch = CHAPTERS.find(c => c.num === n);
-              const fbSavedAt = feedback[n] && (feedback[n].savedAt || feedback[n].resubmittedAt || "viewed");
-              setReadFeedback(prev => {
-                const updated = { ...prev, [n]: fbSavedAt };
-                try { localStorage.setItem("pjt_" + "read_fb_" + (project.studentName||"").trim().toLowerCase().replace(/\s+/g,"_"), JSON.stringify(updated)); } catch(e) {}
-                return updated;
-              });
-              onViewSubmission && onViewSubmission(ch, feedback[n]);
-            }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <span style={{ fontSize:20 }}>💬</span>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:"#8B6914" }}>Supervisor Feedback Ready</div>
-                  <div style={{ fontSize:11, color:"#9E7A1A" }}>{hasFeedback.length} chapter{hasFeedback.length > 1 ? "s" : ""} reviewed</div>
-                </div>
-              </div>
-              <span style={{ fontSize:12, color:"#B8860B", fontWeight:700 }}>View →</span>
-            </div>
-          </div>
-        )}
+        <FeedbackBanner />
+        <StatCards compact={true} />
+        <TipBanner />
 
-        {/* 3-col stat cards */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:16 }} className="fu">
-          {/* Supervisor */}
-          <div style={{ background:"#fff", borderRadius:16, padding:"14px 12px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize:20, marginBottom:6 }}>👨‍🏫</div>
-            <div style={{ fontSize:11, fontWeight:700, color:"#1A2E42", marginBottom:3, lineHeight:1.3 }}>Supervisor</div>
-            <div style={{ fontSize:10, color:"#8892A0", lineHeight:1.3 }}>
-              {project.supervisorName ? project.supervisorName.replace("Code: ","").split(" ").slice(0,2).join(" ") : "Not linked"}
-            </div>
-            {project.supervisorName && (
-              <div style={{ marginTop:6, fontSize:9, fontWeight:700, color:"var(--teal)", background:"rgba(0,201,167,0.08)", borderRadius:99, padding:"2px 7px", display:"inline-block" }}>
-                {hasFeedback.length > 0 ? hasFeedback.length + " New" : "Connected"}
-              </div>
-            )}
-          </div>
-
-          {/* Next chapter */}
-          <div style={{ background:"#fff", borderRadius:16, padding:"14px 12px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize:20, marginBottom:6 }}>📖</div>
-            <div style={{ fontSize:11, fontWeight:700, color:"#1A2E42", marginBottom:3 }}>Next Chapter</div>
-            <div style={{ fontSize:10, color:"#8892A0", lineHeight:1.3 }}>
-              {nextChapter ? "Ch." + nextChapter.num + " Draft" : "All done!"}
-            </div>
-            {nextChapter && (
-              <div style={{ marginTop:6, fontSize:9, fontWeight:700, color:"#FF7043", background:"rgba(255,112,67,0.1)", borderRadius:99, padding:"2px 7px", display:"inline-block" }}>
-                {5 - submittedCount} left
-              </div>
-            )}
-          </div>
-
-          {/* Words written */}
-          <div style={{ background:"#fff", borderRadius:16, padding:"14px 12px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize:20, marginBottom:6 }}>✍️</div>
-            <div style={{ fontSize:11, fontWeight:700, color:"#1A2E42", marginBottom:3 }}>Words</div>
-            <div style={{ fontSize:10, color:"#8892A0" }}>{totalWords > 0 ? totalWords.toLocaleString() : "0"}</div>
-            <div style={{ marginTop:6, fontSize:9, fontWeight:700, color:"var(--teal)", background:"rgba(0,201,167,0.08)", borderRadius:99, padding:"2px 7px", display:"inline-block" }}>
-              {submittedCount}/5 done
-            </div>
-          </div>
-        </div>
-
-        {/* AI Writing Tip banner */}
-        <div key={tipIdx}
-          style={{ background:"linear-gradient(135deg, #0D3B33 0%, #0B2A2A 100%)", borderRadius:16, padding:"16px 18px", marginBottom:16, display:"flex", alignItems:"center", gap:14, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.15)" }}
-          onClick={() => nextChapter && onGoToChapter(nextChapter)}
-          className="fi">
-          <div style={{ width:44, height:44, borderRadius:12, background:"rgba(0,201,167,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>🤖</div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>AI Writing Tip</div>
-            <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", lineHeight:1.55 }}>{TIPS[tipIdx]}</div>
-          </div>
-          <div style={{ width:32, height:32, borderRadius:99, background:"rgba(0,201,167,0.15)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:"var(--teal)", fontSize:14 }}>›</div>
-        </div>
-
-        {/* Resources + Milestones side by side */}
+        {/* Resources + Milestones */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
-          {/* Resources */}
-          <div style={{ background:"#fff", borderRadius:16, padding:"16px 14px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize:10, fontWeight:700, color:"#8892A0", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12 }}>Resources</div>
-            {[
-              { icon:"📚", label:"Research Library" },
-              { icon:"🔧", label:"Citation Guide" },
-              { icon:"🎓", label:"Writing Tips" },
-            ].map((r, i) => (
-              <button key={i} onClick={onGoToResources}
-                style={{ display:"flex", alignItems:"center", gap:8, width:"100%", background:"none", border:"none", padding:"6px 0", cursor:"pointer", textAlign:"left" }}>
-                <span style={{ fontSize:14 }}>{r.icon}</span>
-                <span style={{ fontSize:12, color:"#1A2E42", fontWeight:500 }}>{r.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Milestones */}
-          <div style={{ background:"rgba(0,201,167,0.06)", border:"1.5px solid rgba(0,201,167,0.2)", borderRadius:16, padding:"16px 14px" }}>
-            <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12 }}>Milestones</div>
-            {CHAPTERS.map(ch => {
-              const done = !!submitted[ch.num];
-              const fb = feedback[ch.num];
-              const fbColor = fb ? statusColor[fb.status] : done ? "#4CAF50" : "#C4C9D0";
-              return (
-                <div key={ch.num} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                  <span style={{ width:8, height:8, borderRadius:"50%", background: done ? fbColor : "#E0E7EF", flexShrink:0, display:"inline-block" }} />
-                  <span style={{ fontSize:11, color: done ? "#1A2E42" : "#8892A0", fontWeight: done ? 600 : 400, textDecoration: done && fb && fb.status === "approved" ? "line-through" : "none" }}>
-                    {ch.title.split(" ").slice(0,2).join(" ")}
-                    {done && fb ? (fb.status === "approved" ? " ✓" : " ~") : done ? " ✓" : ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <ResourcesCard />
+          <MilestonesCard />
         </div>
 
-        {/* Chapter quick-access grid */}
-        <div style={{ background:"#fff", borderRadius:16, padding:"16px 14px", boxShadow:"0 2px 12px rgba(0,0,0,0.07)" }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#8892A0", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>All Chapters</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {CHAPTERS.map(ch => {
-              const done = !!submitted[ch.num];
-              const isNext = nextChapter && nextChapter.num === ch.num;
-              const fb = feedback[ch.num];
-              const hasNewFb = hasFeedback.includes(ch.num);
-              return (
-                <button key={ch.num} onClick={() => onGoToChapter(ch)}
-                  style={{ display:"flex", alignItems:"center", gap:12, background: isNext ? "rgba(0,201,167,0.06)" : "transparent", border:"1px solid " + (isNext ? "rgba(0,201,167,0.2)" : "rgba(0,0,0,0.06)"), borderRadius:12, padding:"12px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.2)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isNext ? "rgba(0,201,167,0.06)" : "transparent"; e.currentTarget.style.borderColor = isNext ? "rgba(0,201,167,0.2)" : "rgba(0,0,0,0.06)"; }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background: done ? "var(--teal)" : isNext ? "rgba(0,201,167,0.1)" : "#F0F4F8", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:13, color: done ? "#0B2A2A" : isNext ? "var(--teal)" : "#8892A0", flexShrink:0 }}>
-                    {done ? "✓" : ch.num}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:"#1A2E42", marginBottom:2 }}>Chapter {ch.num}: {ch.title}</div>
-                    <div style={{ fontSize:11, color:"#8892A0" }}>{ch.sections.length} sections</div>
-                  </div>
-                  {hasNewFb && <span style={{ fontSize:10, fontWeight:700, color:"#B8860B", background:"#FFF3CD", borderRadius:99, padding:"3px 8px", flexShrink:0 }}>New</span>}
-                  {done && !hasNewFb && fb && fb.status !== "pending" && (
-                    <span style={{ fontSize:10, fontWeight:700, color: statusColor[fb.status], background: statusColor[fb.status] + "22", borderRadius:99, padding:"3px 8px", flexShrink:0 }}>
-                      {fb.status === "approved" ? "✓" : fb.status === "minor" ? "~" : "!"}
-                    </span>
-                  )}
-                  {isNext && !done && <span style={{ fontSize:11, color:"var(--teal)", fontWeight:700, flexShrink:0 }}>→</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
+        <ChaptersList />
       </div>
 
-      {/* ── BOTTOM NAV BAR ── */}
+      {/* Bottom nav */}
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, background:"#fff", borderTop:"1px solid rgba(0,0,0,0.08)", padding:"10px 0 16px", display:"flex", justifyContent:"space-around", alignItems:"center", zIndex:50, boxShadow:"0 -4px 20px rgba(0,0,0,0.08)" }}>
         {[
           { icon:"🏠", label:"Home",     fn: () => {}, active: true },
           { icon:"📚", label:"Chapters", fn: onGoToChapters, active: false },
-          { icon:null,  label:null,      fn: () => nextChapter && onGoToChapter(nextChapter), active: false, isCta: true },
+          { icon:null,  label:null,      fn: () => nextChapter && onGoToChapter(nextChapter), isCta: true },
           { icon:"💬", label:"Feedback", fn: onGoToChapters, active: false },
           { icon:"👤", label:"Profile",  fn: onSignOut, active: false },
-        ].map((item, i) => {
-          if (item.isCta) {
-            return (
-              <button key={i} onClick={item.fn}
-                style={{ width:52, height:52, borderRadius:"50%", background:"var(--teal)", border:"none", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", boxShadow:"0 4px 16px rgba(0,201,167,0.4)", marginTop:-16, fontSize:22, transition:"all 0.2s" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ""; }}>
-                <span style={{ color:"#0B2A2A", fontWeight:900, fontSize:24 }}>+</span>
-              </button>
-            );
-          }
-          return (
-            <button key={i} onClick={item.fn}
-              style={{ background:"none", border:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer", padding:"4px 12px" }}>
-              <span style={{ fontSize:20 }}>{item.icon}</span>
-              <span style={{ fontSize:9, fontWeight:item.active ? 700 : 500, color: item.active ? "var(--teal)" : "#8892A0", letterSpacing:"0.03em" }}>{item.label}</span>
-            </button>
-          );
-        })}
+        ].map((item, i) => item.isCta ? (
+          <button key={i} onClick={item.fn}
+            style={{ width:52, height:52, borderRadius:"50%", background:"var(--teal)", border:"none", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", boxShadow:"0 4px 16px rgba(0,201,167,0.4)", marginTop:-16, transition:"all 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.1)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; }}>
+            <span style={{ color:"#0B2A2A", fontWeight:900, fontSize:24 }}>+</span>
+          </button>
+        ) : (
+          <button key={i} onClick={item.fn} style={{ background:"none", border:"none", display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer", padding:"4px 12px" }}>
+            <span style={{ fontSize:20 }}>{item.icon}</span>
+            <span style={{ fontSize:9, fontWeight:item.active ? 700 : 500, color: item.active ? "var(--teal)" : "#8892A0" }}>{item.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
