@@ -1078,7 +1078,17 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
     if (!chatInput.trim()) return;
     const q = chatInput; setChatInput(""); setAiResponse(""); setAiLoading(true);
     try {
-      const sys = sysBase + " Section: " + chapter.num + "." + (activeSection + 1) + " " + sec.name + ". Draft: " + (draft || "none") + ". Answer helpfully and specifically. Under 250 words.";
+      const sys = sysBase +
+        " The student is currently writing section " + chapter.num + "." + (activeSection + 1) + " — " + sec.name + "." +
+        " Their current draft: " + (draft || "nothing written yet") + "." +
+        " Your role is strictly a Socratic guide. ABSOLUTE RULES:" +
+        " 1. NEVER write sentences, paragraphs, or prose the student could paste into their work." +
+        " 2. NEVER provide examples, sample sentences, or model answers — not even partial ones." +
+        " 3. NEVER complete their thoughts or show them what good writing looks like." +
+        " 4. ONLY respond with questions that make the student think, reflect, or clarify their own ideas." +
+        " 5. If the student asks you to write anything for them, refuse clearly and redirect with a guiding question instead." +
+        " 6. Keep responses short — 2 to 4 sentences maximum." +
+        " 7. Always end your response with exactly one follow-up question to keep the student thinking.";
       const resp = await callAI([{ role:"user", content:q }], sys);
       setAiResponse(resp);
     } catch(e) { setAiResponse("AI error: " + e.message); }
@@ -1494,7 +1504,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 { id:"explain", icon:"💡", label:"Explain section" },
                 { id:"review",  icon:"🔍", label:"Review draft" },
                 { id:"cite",    icon:"📚", label:"Format citation" },
-                { id:"chat",    icon:"💬", label:"Ask anything" },
+                { id:"chat",    icon:"💬", label:"Guide me" },
               ].map(t => (
                 <button key={t.id}
                   onClick={() => {
@@ -1550,6 +1560,12 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
 
             {aiPanel === "chat" && (
               <div className="fi">
+                <div style={{ background:"rgba(255,193,7,0.07)", border:"1px solid rgba(255,193,7,0.2)", borderRadius:8, padding:"8px 10px", marginBottom:10, display:"flex", gap:7, alignItems:"flex-start" }}>
+                  <span style={{ fontSize:12, flexShrink:0, marginTop:1 }}>⚠️</span>
+                  <span style={{ fontSize:10, color:"#C8A000", lineHeight:1.55 }}>
+                    This tool asks you questions to guide your thinking. It will <strong>not</strong> write for you or give examples — that's your job.
+                  </span>
+                </div>
                 {aiResponse && (
                   <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.14)", borderRadius:9, padding:"11px 12px", marginBottom:9, fontSize:13, color:"var(--grey2)", lineHeight:1.75, whiteSpace:"pre-wrap" }}>
                     {aiLoading ? "Thinking..." : aiResponse}
@@ -1557,7 +1573,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 )}
                 <div style={{ display:"flex", gap:7 }}>
                   <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") runChat(); }}
-                    placeholder="Ask anything about your project..."
+                    placeholder="What are you stuck on?"
                     style={{ flex:1, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"8px 11px", color:"var(--white)", fontSize:12, fontFamily:"var(--font-b)", outline:"none" }} />
                   <button onClick={runChat} disabled={aiLoading || !chatInput.trim()}
                     style={{ background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:7, padding:"8px 12px", fontSize:14, cursor:"pointer", flexShrink:0 }}>→</button>
