@@ -154,22 +154,73 @@ function useBreakpoint() {
 
 const STYLES = `
   @import url('https://api.fontshare.com/v2/css?f[]=satoshi@700&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --navy: #0D1B2A; --navy2: #1A2E42; --teal: #00C9A7; --teal2: #00A688;
-    --teal3: #007A65; --white: #FFFFFF; --grey2: #C4C9D0; --grey3: #8892A0;
+    --navy: #0B1623; --navy2: #162436; --navy3: #1E3148;
+    --teal: #00C9A7; --teal2: #00A688; --teal3: #007A65;
+    --teal-glow: rgba(0,201,167,0.18);
+    --white: #FFFFFF; --grey1: #E8ECF0; --grey2: #C4C9D0; --grey3: #8892A0; --grey4: #4A5568;
+    --danger: #FF5C5C; --warn: #FFC107; --success: #4CAF50;
     --font-d: 'Satoshi', 'Syne', sans-serif; --font-b: 'DM Sans', sans-serif;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px;
+    --shadow-teal: 0 4px 24px rgba(0,201,167,0.15);
+    --shadow-card: 0 2px 12px rgba(0,0,0,0.3);
+    --border-subtle: 1px solid rgba(255,255,255,0.07);
+    --border-teal: 1px solid rgba(0,201,167,0.25);
   }
   html, body { height: 100%; background: var(--navy); }
   #root { height: 100%; font-family: var(--font-b); }
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-thumb { background: var(--teal3); border-radius: 4px; }
-  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,201,167,0.3); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,201,167,0.5); }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
   @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
   @keyframes spin { to { transform:rotate(360deg); } }
-  .fu { animation: fadeUp 0.45s ease both; }
-  .fi { animation: fadeIn 0.35s ease both; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+  @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+  .fu { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+  .fi { animation: fadeIn 0.3s ease both; }
+  .btn-primary {
+    background: var(--teal); color: var(--navy); border: none;
+    border-radius: var(--radius-md); padding: 13px 20px;
+    font-family: var(--font-d); font-weight: 800; font-size: 14px;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.01em;
+    box-shadow: 0 4px 16px rgba(0,201,167,0.25);
+  }
+  .btn-primary:hover { background: var(--teal2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,201,167,0.35); }
+  .btn-primary:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(0,201,167,0.2); }
+  .btn-primary:disabled { background: rgba(0,201,167,0.2); color: var(--grey3); box-shadow: none; transform: none; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent; color: var(--grey3); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-sm); padding: 7px 13px;
+    font-family: var(--font-b); font-size: 12px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-ghost:hover { color: var(--white); border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.05); }
+  .btn-teal-outline {
+    background: rgba(0,201,167,0.07); color: var(--teal);
+    border: 1px solid rgba(0,201,167,0.22); border-radius: var(--radius-sm);
+    padding: 7px 13px; font-family: var(--font-b); font-weight: 600;
+    font-size: 12px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-teal-outline:hover { background: rgba(0,201,167,0.14); border-color: rgba(0,201,167,0.4); }
+  .card { background: var(--navy2); border: var(--border-subtle); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-card); }
+  .card-glow { background: var(--navy2); border: var(--border-teal); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-teal); }
+  .pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; }
+  .pill-teal { background: rgba(0,201,167,0.1); color: var(--teal); border: 1px solid rgba(0,201,167,0.2); }
+  .pill-green { background: rgba(76,175,80,0.1); color: #4CAF50; border: 1px solid rgba(76,175,80,0.25); }
+  .pill-yellow { background: rgba(255,193,7,0.1); color: #FFC107; border: 1px solid rgba(255,193,7,0.25); }
+  .pill-red { background: rgba(255,92,92,0.1); color: #FF5C5C; border: 1px solid rgba(255,92,92,0.25); }
+  .section-label { font-size: 10px; font-weight: 700; color: var(--grey3); letter-spacing: 0.12em; text-transform: uppercase; }
+  .inp-style {
+    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-md); padding: 13px 16px; color: var(--white);
+    font-size: 14px; font-family: var(--font-b); outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .inp-style:focus { border-color: rgba(0,201,167,0.5); background: rgba(0,201,167,0.04); }
+  .inp-style::placeholder { color: rgba(136,146,160,0.5); }
   [contenteditable]:empty:before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; display: block; font-family: Georgia, serif; font-style: italic; }
   [contenteditable] h2 { font-size:20px; font-weight:700; color:#111827; margin:14px 0 6px; }
   [contenteditable] h3 { font-size:16px; font-weight:700; color:#374151; margin:10px 0 4px; }
@@ -181,11 +232,11 @@ const STYLES = `
   [contenteditable] { caret-color: #00C9A7; }
 
   /* ── Responsive layout ── */
-  .rp-container { width:100%; max-width:680px; margin:0 auto; padding:0 18px; }
-  .rp-nav { padding:13px 18px; border-bottom:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--navy); z-index:10; }
+  .rp-container { width:100%; max-width:680px; margin:0 auto; padding:0 20px; }
+  .rp-nav { padding:13px 20px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:rgba(11,22,35,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); z-index:10; }
   .rp-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
   .rp-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
-  .rp-grid-4 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .rp-grid-4 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
   @media (min-width:1024px) {
     .rp-container { max-width:900px; padding:0 48px; }
@@ -219,18 +270,18 @@ const STYLES = `
     .rp-grid-3 { grid-template-columns:repeat(3,1fr); }
   }
 
-  .ai-key-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; }
-  .ai-key-modal { background:#1A2E42; border:1px solid rgba(0,201,167,0.3); border-radius:16px; padding:28px; width:100%; max-width:420px; }
-  .ai-key-modal h3 { font-family:var(--font-d); font-size:17px; font-weight:700; color:#fff; margin-bottom:6px; }
-  .ai-key-modal p { font-size:12px; color:#8892A0; line-height:1.7; margin-bottom:18px; }
-  .ai-key-input { width:100%; background:#0D1B2A; border:1px solid rgba(255,255,255,0.12); color:#fff; padding:11px 14px; border-radius:10px; font-size:13px; font-family:var(--font-b); outline:none; margin-bottom:14px; transition:border-color 0.2s; }
-  .ai-key-input:focus { border-color:var(--teal); }
-  .ai-key-input::placeholder { color:rgba(136,146,160,0.5); }
-  .ai-key-save-btn { width:100%; padding:12px; background:var(--teal); color:#0D1B2A; border:none; border-radius:10px; font-family:var(--font-d); font-weight:700; font-size:14px; cursor:pointer; }
-  .ai-key-save-btn:hover { background:#00A688; }
+  .ai-key-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeIn 0.2s ease; backdrop-filter:blur(4px); }
+  .ai-key-modal { background:var(--navy2); border:1px solid rgba(0,201,167,0.3); border-radius:var(--radius-xl); padding:32px; width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,201,167,0.08); }
+  .ai-key-modal h3 { font-family:var(--font-d); font-size:18px; font-weight:800; color:#fff; margin-bottom:6px; }
+  .ai-key-modal p { font-size:12px; color:#8892A0; line-height:1.7; margin-bottom:20px; }
+  .ai-key-input { width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:12px 16px; border-radius:var(--radius-md); font-size:13px; font-family:var(--font-b); outline:none; margin-bottom:14px; transition:all 0.2s; }
+  .ai-key-input:focus { border-color:var(--teal); background:rgba(0,201,167,0.04); }
+  .ai-key-input::placeholder { color:rgba(136,146,160,0.45); }
+  .ai-key-save-btn { width:100%; padding:13px; background:var(--teal); color:var(--navy); border:none; border-radius:var(--radius-md); font-family:var(--font-d); font-weight:800; font-size:14px; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 16px rgba(0,201,167,0.25); }
+  .ai-key-save-btn:hover { background:#00A688; transform:translateY(-1px); }
   .ai-key-cancel { width:100%; padding:8px; background:transparent; color:#8892A0; border:none; font-size:12px; cursor:pointer; margin-top:6px; }
-  .ai-key-status.active { background:rgba(0,201,167,0.1); border:1px solid rgba(0,201,167,0.25); color:var(--teal); border-radius:20px; padding:3px 10px; font-size:11px; }
-  .ai-key-status.inactive { background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.25); color:#FF5252; border-radius:20px; padding:3px 10px; font-size:11px; }
+  .ai-key-status.active { background:rgba(0,201,167,0.1); border:1px solid rgba(0,201,167,0.25); color:var(--teal); border-radius:99px; padding:3px 12px; font-size:11px; font-weight:600; }
+  .ai-key-status.inactive { background:rgba(255,92,92,0.1); border:1px solid rgba(255,92,92,0.25); color:#FF5C5C; border-radius:99px; padding:3px 12px; font-size:11px; font-weight:600; }
 `;
 
 const Spinner = () => (
@@ -507,48 +558,46 @@ function buildDownload(project, chapter, drafts, format) {
 
 function WelcomeScreen({ onStart, savedProject, onContinue, onClear, onBack }) {
   return (
-    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column" }}>
-      <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center" }}>
-        <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", position:"relative", overflow:"hidden" }}>
+      {/* Subtle ambient glow */}
+      <div style={{ position:"absolute", top:"-10%", left:"50%", transform:"translateX(-50%)", width:600, height:400, background:"radial-gradient(ellipse, rgba(0,201,167,0.07) 0%, transparent 70%)", pointerEvents:"none" }} />
+
+      <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", backdropFilter:"blur(12px)" }}>
+        <button onClick={onBack} className="btn-ghost" style={{ fontSize:12 }}>← Role picker</button>
       </div>
       <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
       <div style={{ width:"100%", maxWidth:380, textAlign:"center" }} className="fu">
         <div style={{ margin:"0 auto 28px" }}>
           <ProjectaWordmark size={90} />
         </div>
-        <div style={{ fontSize:14, color:"var(--grey3)", marginBottom:28, lineHeight:1.6 }}>Your AI-powered final year project guide</div>
+        <div style={{ fontSize:14, color:"var(--grey3)", marginBottom:32, lineHeight:1.7 }}>Your AI-powered final year project guide</div>
 
         {savedProject ? (
           <>
-            <div style={{ background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:12, padding:"14px 16px", marginBottom:14, textAlign:"left" }}>
-              <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:5 }}>Saved project</div>
-              <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", lineHeight:1.4, marginBottom:3 }}>{savedProject.topic}</div>
-              <div style={{ fontSize:11, color:"var(--grey3)" }}>{savedProject.dept} · {savedProject.uni}</div>
-              <div style={{ fontSize:11, color:"var(--teal)", marginTop:5 }}>
+            <div style={{ background:"rgba(0,201,167,0.06)", border:"1px solid rgba(0,201,167,0.22)", borderRadius:14, padding:"16px 18px", marginBottom:14, textAlign:"left", boxShadow:"0 0 24px rgba(0,201,167,0.06)" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Saved project</div>
+              <div style={{ fontSize:14, fontWeight:700, color:"var(--white)", lineHeight:1.45, marginBottom:4 }}>{savedProject.topic}</div>
+              <div style={{ fontSize:12, color:"var(--grey3)", marginBottom:8 }}>{savedProject.dept} · {savedProject.uni}</div>
+              <div style={{ display:"inline-flex", alignItems:"center", gap:5 }} className="pill pill-teal">
+                <span style={{ width:5, height:5, borderRadius:"50%", background:"var(--teal)", display:"inline-block" }} />
                 {Object.keys(savedProject.submitted || {}).length} of 5 chapters submitted
               </div>
             </div>
-            <button onClick={onContinue}
-              style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:12, padding:"15px 0", fontFamily:"var(--font-d)", fontWeight:800, fontSize:16, cursor:"pointer", marginBottom:10 }}
-              onMouseEnter={e => { e.target.style.background = "var(--teal2)"; }}
-              onMouseLeave={e => { e.target.style.background = "var(--teal)"; }}
-            >Continue my project</button>
-            <button onClick={onClear}
-              style={{ width:"100%", background:"transparent", color:"var(--grey3)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 0", fontFamily:"var(--font-d)", fontWeight:600, fontSize:14, cursor:"pointer", marginBottom:14 }}
-              onMouseEnter={e => { e.target.style.borderColor = "rgba(255,255,255,0.25)"; e.target.style.color = "var(--white)"; }}
-              onMouseLeave={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.color = "var(--grey3)"; }}
-            >Start a new project</button>
+            <button onClick={onContinue} className="btn-primary" style={{ width:"100%", fontSize:16, padding:"15px 0", marginBottom:10, borderRadius:14 }}>
+              Continue my project →
+            </button>
+            <button onClick={onClear} className="btn-ghost" style={{ width:"100%", padding:"12px 0", borderRadius:12, fontSize:14, marginBottom:14 }}>
+              Start a new project
+            </button>
           </>
         ) : (
           <>
-            <button onClick={onStart}
-              style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:12, padding:"15px 0", fontFamily:"var(--font-d)", fontWeight:800, fontSize:16, cursor:"pointer", marginBottom:14 }}
-              onMouseEnter={e => { e.target.style.background = "var(--teal2)"; }}
-              onMouseLeave={e => { e.target.style.background = "var(--teal)"; }}
-            >Start my project</button>
+            <button onClick={onStart} className="btn-primary" style={{ width:"100%", fontSize:16, padding:"15px 0", marginBottom:14, borderRadius:14 }}>
+              Start my project →
+            </button>
           </>
         )}
-        <div style={{ fontSize:11, color:"var(--grey3)" }}>Free · Built for Nigerian universities</div>
+        <div style={{ fontSize:11, color:"var(--grey4)", fontWeight:500 }}>Free · Built for Nigerian universities</div>
       </div>
       </div>
     </div>
@@ -565,19 +614,19 @@ function SetupScreen({ onSubmit, onBack }) {
   const [supervisor,  setSupervisor]  = useState("");
   const ok = studentName.trim().length > 2 && topic.trim().length > 8 && dept && uni.trim().length > 3 && supervisor.trim().length === 7;
 
-  const inp = { width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:10, padding:"13px 16px", color:"var(--white)", fontSize:14, fontFamily:"var(--font-b)", outline:"none" };
-  const lbl = { display:"block", fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:7 };
+  const inp = { width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"13px 16px", color:"var(--white)", fontSize:14, fontFamily:"var(--font-b)", outline:"none", transition:"all 0.2s" };
+  const lbl = { display:"block", fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:7 };
 
   return (
     <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column" }}>
-      <div style={{ padding:"16px 22px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:12 }}>
-        <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Sign out</button>
-        <ProjectaIcon size={30} />
+      <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:12, backdropFilter:"blur(12px)", background:"rgba(11,22,35,0.92)" }}>
+        <button onClick={onBack} className="btn-ghost" style={{ fontSize:12 }}>← Sign out</button>
+        <ProjectaIcon size={28} />
       </div>
-      <div style={{ flex:1, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 24px" }}>
+      <div style={{ flex:1, display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px" }}>
         <div style={{ width:"100%", maxWidth:520, margin:"0 auto" }} className="fu">
           <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", marginBottom:8 }}>Set up your project</div>
-          <div style={{ fontSize:14, color:"var(--grey3)", marginBottom:28, lineHeight:1.6 }}>Tell Projecta about yourself and your research. Your supervisor will be connected automatically.</div>
+          <div style={{ fontSize:14, color:"var(--grey3)", marginBottom:32, lineHeight:1.65 }}>Tell Projecta about yourself and your research. Your supervisor will be connected automatically.</div>
 
           <div style={{ marginBottom:16 }}>
             <label style={lbl}>Your Full Name</label>
@@ -604,18 +653,19 @@ function SetupScreen({ onSubmit, onBack }) {
 
           <div style={{ marginBottom:28 }}>
             <label style={lbl}>Supervisor Code</label>
-            <input style={{ ...inp, textTransform:"uppercase", letterSpacing:"3px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:18 }}
+            <input style={{ ...inp, textTransform:"uppercase", letterSpacing:"4px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:18, textAlign:"center" }}
               placeholder="e.g. BEL-4A2"
               value={supervisor}
               onChange={e => setSupervisor(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,"").slice(0,7))}
               maxLength={7}
             />
-            <div style={{ fontSize:11, color:"var(--grey3)", marginTop:6 }}>Ask your supervisor for their 6-character Projecta code.</div>
+            <div style={{ fontSize:11, color:"var(--grey3)", marginTop:7 }}>Ask your supervisor for their 6-character Projecta code.</div>
           </div>
 
           <button onClick={() => onSubmit({ studentName, topic, dept, uni, supervisorCode: supervisor.trim() })} disabled={!ok}
-            style={{ width:"100%", background: ok ? "var(--teal)" : "rgba(0,201,167,0.2)", color: ok ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:10, padding:"14px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor: ok ? "pointer" : "not-allowed" }}>
-            Generate my chapter structure
+            className="btn-primary"
+            style={{ width:"100%", fontSize:15, padding:"14px 0", opacity: ok ? 1 : 0.5 }}>
+            Generate my chapter structure →
           </button>
         </div>
       </div>
@@ -671,34 +721,33 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
   const chStatusLabel = { pending:"Pending review", approved:"✓ Approved", minor:"Minor revision needed", major:"Major revision needed" };
   return (
     <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column" }}>
-      <div style={{ padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, background:"var(--navy)", zIndex:10 }}>
-        <ProjectaIcon size={30} />
+      <div className="rp-nav">
+        <ProjectaIcon size={28} />
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           {project.supervisorCodeKey && (
-            <button onClick={loadFeedback} disabled={checkingFeedback}
-              style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 12px", color: checkingFeedback ? "var(--grey3)" : "var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+            <button onClick={loadFeedback} disabled={checkingFeedback} className="btn-teal-outline">
               {checkingFeedback ? "Checking..." : "↻ Check feedback"}
             </button>
           )}
-          <button onClick={onHome} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
-          <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>New project</button>
-          <button onClick={onGoToResources} style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 12px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>📚 Resources</button>
+          <button onClick={onHome} className="btn-ghost">← Home</button>
+          <button onClick={onBack} className="btn-ghost">New project</button>
+          <button onClick={onGoToResources} className="btn-teal-outline">📚 Resources</button>
         </div>
       </div>
       <div style={{ flex:1, padding:"28px 0" }}><div className="rp-container">
-        <div style={{ marginBottom:24 }} className="fu">
-          <div style={{ fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>{project.dept} - {project.uni}</div>
-          <div style={{ fontFamily:"var(--font-d)", fontSize:20, fontWeight:700, color:"var(--white)", lineHeight:1.3, marginBottom:6 }}>{project.topic}</div>
-          <div style={{ fontSize:13, color:"var(--grey3)", marginBottom: project.supervisorName ? 8 : 0 }}>Select any chapter to start writing.</div>
+        <div style={{ marginBottom:26 }} className="fu">
+          <div style={{ fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:8 }}>{project.dept} · {project.uni}</div>
+          <div style={{ fontFamily:"var(--font-d)", fontSize:21, fontWeight:800, color:"var(--white)", lineHeight:1.3, marginBottom:6 }}>{project.topic}</div>
+          <div style={{ fontSize:13, color:"var(--grey3)", marginBottom: project.supervisorName ? 10 : 0 }}>Select any chapter to start writing.</div>
           {project.supervisorName && (
-            <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:20, padding:"5px 14px", marginTop:4 }}>
-              <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--teal)", display:"inline-block", flexShrink:0 }} />
-              <span style={{ fontSize:11, color:"var(--grey2)" }}>Connected to supervisor: <span style={{ color:"var(--teal)", fontWeight:700 }}>{project.supervisorName}</span></span>
-            </div>
+            <span className="pill pill-teal" style={{ marginTop:4 }}>
+              <span style={{ width:5, height:5, borderRadius:"50%", background:"var(--teal)", display:"inline-block" }} />
+              Supervisor: <span style={{ fontWeight:700 }}>{project.supervisorName}</span>
+            </span>
           )}
         </div>
-        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:8, height:5, marginBottom:28, overflow:"hidden" }}>
-          <div style={{ height:"100%", width:(submittedCount * 20) + "%", background:"var(--teal)", borderRadius:8, transition:"width 0.5s" }} />
+        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, marginBottom:28, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:(submittedCount * 20) + "%", background:"linear-gradient(90deg, var(--teal3), var(--teal))", borderRadius:99, transition:"width 0.6s ease", boxShadow:"0 0 8px rgba(0,201,167,0.4)" }} />
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {CHAPTERS.map(function(ch, i) {
@@ -706,25 +755,21 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
             const isDone = (project.completed || 0) > i;
             const isActive = (project.completed || 0) === i;
             return (
-              <div key={ch.num} className="fu" style={{ animationDelay: (i * 0.06) + "s" }} onClick={() => {
-                  // Don't mark feedback read just from opening chapter — only from viewing feedback
-                  onSelect(ch);
-                }}>
+              <div key={ch.num} className="fu" style={{ animationDelay: (i * 0.07) + "s" }} onClick={() => { onSelect(ch); }}>
                 <div
-                  style={{ background: isDone ? "rgba(0,201,167,0.07)" : isActive ? "var(--navy2)" : "rgba(255,255,255,0.03)"
-, border:"1px solid " + (isDone ? "rgba(0,201,167,0.28)" : isActive ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.07)"), borderRadius:12, padding:"16px 18px", cursor:"pointer", transition:"all 0.18s", display:"flex", alignItems:"flex-start", gap:14 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = isDone ? "rgba(0,201,167,0.28)" : isActive ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                  style={{ background: isDone ? "rgba(0,201,167,0.07)" : isActive ? "var(--navy2)" : "rgba(255,255,255,0.025)", border:"1px solid " + (isDone ? "rgba(0,201,167,0.3)" : isActive ? "rgba(0,201,167,0.2)" : "rgba(255,255,255,0.07)"), borderRadius:14, padding:"16px 18px", cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"flex-start", gap:14, boxShadow: isDone ? "0 0 20px rgba(0,201,167,0.06)" : "none" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.45)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.25)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = isDone ? "rgba(0,201,167,0.3)" : isActive ? "rgba(0,201,167,0.2)" : "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = isDone ? "0 0 20px rgba(0,201,167,0.06)" : "none"; }}
                 >
-                  <div style={{ width:38, height:38, borderRadius:9, flexShrink:0, background: isDone ? "var(--teal)" : isActive ? "rgba(0,201,167,0.14)" : "rgba(255,255,255,0.05)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, color: isDone ? "var(--navy)" : isActive ? "var(--teal)" : "var(--grey3)" }}>
-                    {isDone ? "+" : "0" + ch.num}
+                  <div style={{ width:40, height:40, borderRadius:10, flexShrink:0, background: isDone ? "var(--teal)" : isActive ? "rgba(0,201,167,0.15)" : "rgba(255,255,255,0.05)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:14, color: isDone ? "var(--navy)" : isActive ? "var(--teal)" : "var(--grey3)", boxShadow: isDone ? "0 4px 12px rgba(0,201,167,0.3)" : "none" }}>
+                    {isDone ? "✓" : "0" + ch.num}
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)", marginBottom:4 }}>Chapter {ch.num}: {ch.title}</div>
-                    <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.5 }}>{ch.desc}</div>
-                    <div style={{ marginTop:8, display:"flex", gap:7, flexWrap:"wrap" }}>
-                      <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.05)", borderRadius:5, padding:"2px 7px" }}>{ch.sections.length} sections</span>
-                      {isSubmitted && !chapterFeedback[ch.num] && <span style={{ fontSize:10, color:"#4CAF50", background:"rgba(76,175,80,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>✓ Submitted</span>}
+                    <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.55 }}>{ch.desc}</div>
+                    <div style={{ marginTop:9, display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+                      <span style={{ fontSize:10, color:"var(--grey3)", background:"rgba(255,255,255,0.05)", borderRadius:6, padding:"2px 8px", fontWeight:500 }}>{ch.sections.length} sections</span>
+                      {isSubmitted && !chapterFeedback[ch.num] && <span className="pill pill-green">✓ Submitted</span>}
                       {(() => {
                         const fb = chapterFeedback[ch.num];
                         if (!isSubmitted || !fb) return null;
@@ -733,12 +778,10 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                         const isUnread = !lastRead || (fbTs && lastRead !== fbTs);
                         const wasReviewed = fb.status && fb.status !== "pending";
                         if (wasReviewed && isUnread) return (
-                          <span style={{ fontSize:10, color:"#FFC107", background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
-                            💬 New feedback
-                          </span>
+                          <span className="pill pill-yellow">💬 New feedback</span>
                         );
                         if (wasReviewed && !isUnread) return (
-                          <span style={{ fontSize:10, color: chStatusColor[fb.status], background:"rgba(255,255,255,0.04)", border:"1px solid " + chStatusColor[fb.status] + "44", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>
+                          <span style={{ fontSize:10, color: chStatusColor[fb.status], background: chStatusColor[fb.status] + "22", border:"1px solid " + chStatusColor[fb.status] + "55", borderRadius:6, padding:"2px 8px", fontWeight:700 }}>
                             {chStatusLabel[fb.status]}
                           </span>
                         );
@@ -757,15 +800,14 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                             } catch(e) {}
                             onViewSubmission(ch, chapterFeedback[ch.num]);
                           }}
-                          style={{ fontSize:10, color: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--navy)" : "var(--teal)", background: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--teal)" : "rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600, cursor:"pointer" }}>
-                          {chapterFeedback[ch.num] ? (readFeedback[ch.num] ? "View feedback" : "View feedback →") : "View submission"}
-                        </span>
+                          style={{ fontSize:10, color: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--navy)" : "var(--teal)", background: chapterFeedback[ch.num] && !readFeedback[ch.num] ? "var(--teal)" : "rgba(0,201,167,0.1)", borderRadius:6, padding:"2px 8px", fontWeight:700, cursor:"pointer", border:"1px solid " + (chapterFeedback[ch.num] && !readFeedback[ch.num] ? "transparent" : "rgba(0,201,167,0.25)") }}>
+                            {chapterFeedback[ch.num] ? (readFeedback[ch.num] ? "View feedback" : "View feedback →") : "View submission"}
+                          </span>
                       )}
                       {isSubmitted && chapterFeedback[ch.num] && (chapterFeedback[ch.num].status === "minor" || chapterFeedback[ch.num].status === "major") && (
                         <span
                           onClick={e => {
                             e.stopPropagation();
-                            // Mark feedback as read when student clicks Revise & Resubmit
                             const fbTs2 = chapterFeedback[ch.num] && (chapterFeedback[ch.num].savedAt || chapterFeedback[ch.num].resubmittedAt || "viewed");
                             const updated = { ...readFeedback, [ch.num]: fbTs2 };
                             setReadFeedback(updated);
@@ -775,11 +817,11 @@ function ChaptersScreen({ project, allDrafts, onSelect, onBack, onHome, onViewSu
                             } catch(e) {}
                             onSelect(ch);
                           }}
-                          style={{ fontSize:10, color:"var(--navy)", background: chapterFeedback[ch.num].status === "major" ? "#FF7043" : "#FFC107", borderRadius:5, padding:"2px 7px", fontWeight:700, cursor:"pointer" }}>
+                          style={{ fontSize:10, color:"var(--navy)", background: chapterFeedback[ch.num].status === "major" ? "#FF7043" : "#FFC107", borderRadius:6, padding:"2px 8px", fontWeight:700, cursor:"pointer" }}>
                           ✏️ Revise & Resubmit
                         </span>
                       )}
-                      {!isSubmitted && isActive && <span style={{ fontSize:10, color:"var(--teal)", background:"rgba(0,201,167,0.1)", borderRadius:5, padding:"2px 7px", fontWeight:600 }}>Continue</span>}
+                      {!isSubmitted && isActive && <span className="pill pill-teal">Continue →</span>}
                     </div>
                   </div>
                 </div>
@@ -1100,37 +1142,35 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
 
       <div className="rp-nav" style={{ gap:10, flexWrap:"wrap", zIndex:20 }}>
         <div style={{ display:"flex", gap:6 }}>
-          <button onClick={onHome} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 11px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>← Role picker</button>
-          <button onClick={onBack} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 11px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>Chapters</button>
+          <button onClick={onHome} className="btn-ghost" style={{ fontSize:12 }}>← Home</button>
+          <button onClick={onBack} className="btn-ghost" style={{ fontSize:12 }}>Chapters</button>
         </div>
         <div style={{ flex:1, minWidth:0, fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
           Ch.{chapter.num} — {chapter.title}
         </div>
         <div style={{ display:"flex", gap:7, flexShrink:0, flexWrap:"wrap" }}>
           <button onClick={runChapterReview}
-            style={{ background:"rgba(0,201,167,0.1)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.28)", borderRadius:7, padding:"7px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+            style={{ background:"rgba(0,201,167,0.08)", color:"var(--teal)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:8, padding:"7px 12px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap", transition:"all 0.18s" }}>
             AI Chapter Review
           </button>
           {submitted ? (
             <div style={{ display:"flex", gap:7, alignItems:"center" }}>
-              <div style={{ background:"rgba(0,201,167,0.1)", border:"1px solid rgba(0,201,167,0.28)", borderRadius:7, padding:"7px 11px" }}>
-                <span style={{ fontSize:12, color:"var(--teal)", fontWeight:700 }}>Submitted {submitTime}</span>
+              <div style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:8, padding:"7px 12px" }}>
+                <span style={{ fontSize:12, color:"var(--teal)", fontWeight:700 }}>✓ Submitted {submitTime}</span>
               </div>
               <button onClick={() => {
                 const fmt = window.confirm("Download as Word document?\nClick OK for Word (.doc)\nClick Cancel for PDF (print)") ? "doc" : "pdf";
                 buildDownload(project, chapter, drafts, fmt);
-              }}
-                style={{ background:"var(--navy2)", color:"var(--grey2)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:7, padding:"7px 13px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}
-                onMouseEnter={e => { e.currentTarget.style.color = "var(--teal)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.4)"; }}
-                onMouseLeave={e => { e.currentTarget.style.color = "var(--grey2)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; }}>
-                Download Chapter
+              }} className="btn-ghost" style={{ fontSize:12, whiteSpace:"nowrap" }}>
+                ↓ Download
               </button>
             </div>
           ) : (
             <button onClick={handleSubmit}
-              style={{ background: allSectionsComplete ? "var(--teal)" : "rgba(0,201,167,0.25)", color: allSectionsComplete ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:7, padding:"7px 14px", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer", whiteSpace:"nowrap" }}
+              className="btn-primary"
+              style={{ fontSize:13, padding:"7px 14px", whiteSpace:"nowrap", opacity: allSectionsComplete ? 1 : 0.55, boxShadow: allSectionsComplete ? "0 4px 16px rgba(0,201,167,0.25)" : "none" }}
               title={allSectionsComplete ? "Submit chapter to supervisor" : incompleteSections.length + " section(s) still need content"}>
-              {allSectionsComplete ? "Submit to supervisor" : incompleteSections.length + " section(s) incomplete"}
+              {allSectionsComplete ? "Submit to supervisor →" : incompleteSections.length + " section(s) incomplete"}
             </button>
           )}
         </div>
@@ -1138,22 +1178,22 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
 
       <div className="rp-sidebar-layout" style={{ flex:1, display:"flex", overflow:"hidden" }}>
 
-        <div className="rp-sections-panel" style={{ flexShrink:0, padding:"14px 10px", display:"flex", gap:7 }}>
-          <div className="rp-show-desktop" style={{ fontSize:9, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10, paddingLeft:8 }}>Sections</div>
+        <div className="rp-sections-panel" style={{ flexShrink:0, padding:"14px 10px", display:"flex", gap:5 }}>
+          <div className="rp-show-desktop" style={{ fontSize:9, fontWeight:700, color:"var(--grey4)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12, paddingLeft:8 }}>Sections</div>
           {chapter.sections.map((s, i) => (
             <button key={i}
               onClick={() => { setActiveSection(i); setAiPanel(null); setAiResponse(""); }}
-              style={{ display:"flex", alignItems:"center", gap:7, background: activeSection===i ? "rgba(0,201,167,0.11)" : "transparent", border: activeSection===i ? "1px solid rgba(0,201,167,0.25)" : "1px solid transparent", borderRadius:8, padding:"7px 9px", cursor:"pointer", textAlign:"left", transition:"all 0.14s", marginBottom:2, whiteSpace:"nowrap" }}
-              onMouseEnter={e => { if (activeSection !== i) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-              onMouseLeave={e => { if (activeSection !== i) e.currentTarget.style.background = "transparent"; }}
+              style={{ display:"flex", alignItems:"center", gap:8, background: activeSection===i ? "rgba(0,201,167,0.1)" : "transparent", border: activeSection===i ? "1px solid rgba(0,201,167,0.28)" : "1px solid transparent", borderRadius:9, padding:"8px 10px", cursor:"pointer", textAlign:"left", transition:"all 0.15s", marginBottom:2, whiteSpace:"nowrap" }}
+              onMouseEnter={e => { if (activeSection !== i) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; } }}
+              onMouseLeave={e => { if (activeSection !== i) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; } }}
             >
               {sectionWordCounts[i] >= MIN_WORDS
-                ? <span style={{ width:6, height:6, borderRadius:"50%", background: activeSection===i ? "var(--teal)" : "#4CAF50", flexShrink:0, display:"inline-block" }} />
+                ? <span style={{ width:7, height:7, borderRadius:"50%", background: activeSection===i ? "var(--teal)" : "#4CAF50", flexShrink:0, display:"inline-block", boxShadow: activeSection===i ? "0 0 6px rgba(0,201,167,0.6)" : "none" }} />
                 : <Dot active={activeSection === i} />
               }
               <span style={{ fontSize:11, lineHeight:1.4 }}>
-                <span style={{ fontFamily:"var(--font-d)", fontSize:10, color: activeSection===i ? "var(--teal)" : "rgba(136,146,160,0.5)", marginRight:3 }}>{chapter.num}.{i+1}</span>
-                <span style={{ color: activeSection===i ? "var(--teal)" : "var(--grey3)", fontWeight: activeSection===i ? 600 : 400 }}>{s.name}</span>
+                <span style={{ fontFamily:"var(--font-d)", fontSize:10, color: activeSection===i ? "var(--teal)" : "var(--grey4)", marginRight:3, fontWeight:600 }}>{chapter.num}.{i+1}</span>
+                <span style={{ color: activeSection===i ? "var(--white)" : "var(--grey3)", fontWeight: activeSection===i ? 700 : 400 }}>{s.name}</span>
               </span>
             </button>
           ))}
@@ -1162,39 +1202,39 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
         <div className="rp-editor-panel" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
           <div style={{ padding:"14px 18px 10px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
             <div style={{ display:"flex", alignItems:"baseline", gap:9, marginBottom:3 }}>
-              <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--teal)" }}>{chapter.num}.{activeSection+1}</span>
+              <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:800, color:"var(--teal)" }}>{chapter.num}.{activeSection+1}</span>
               <span style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:700, color:"var(--white)" }}>{sec.name}</span>
             </div>
-            <span style={{ fontSize:11, color:"var(--teal)" }}>Expected: {sec.par}</span>
+            <span className="pill pill-teal" style={{ marginTop:2 }}>Expected: {sec.par}</span>
           </div>
-          <div style={{ margin:"10px 14px 0", background:"rgba(0,201,167,0.05)", border:"1px solid rgba(0,201,167,0.14)", borderRadius:9, padding:"9px 13px", fontSize:12, color:"rgba(168,237,226,0.85)", lineHeight:1.6 }}>
-            <span style={{ fontWeight:600, color:"var(--teal)" }}>Guide: </span>{sec.guide}
+          <div style={{ margin:"10px 14px 0", background:"rgba(0,201,167,0.04)", border:"1px solid rgba(0,201,167,0.12)", borderRadius:10, padding:"10px 14px", fontSize:12, color:"rgba(168,237,226,0.8)", lineHeight:1.65 }}>
+            <span style={{ fontWeight:700, color:"var(--teal)" }}>Guide: </span>{sec.guide}
           </div>
-          <div style={{ margin:"6px 14px 0", display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ flex:1, height:3, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
-              <div style={{ height:"100%", width: Math.min(100, (sectionWordCounts[activeSection] / MIN_WORDS) * 100) + "%", background: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--teal)", borderRadius:3, transition:"width 0.3s" }} />
+          <div style={{ margin:"8px 14px 0", display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ flex:1, height:3, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+              <div style={{ height:"100%", width: Math.min(100, (sectionWordCounts[activeSection] / MIN_WORDS) * 100) + "%", background: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--teal)", borderRadius:99, transition:"width 0.3s" }} />
             </div>
-            <span style={{ fontSize:10, color: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--grey3)", whiteSpace:"nowrap", flexShrink:0 }}>
-              {sectionWordCounts[activeSection] >= MIN_WORDS ? "Section complete" : Math.max(0, MIN_WORDS - sectionWordCounts[activeSection]) + " more words needed"}
+            <span style={{ fontSize:10, fontWeight:600, color: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--grey3)", whiteSpace:"nowrap", flexShrink:0 }}>
+              {sectionWordCounts[activeSection] >= MIN_WORDS ? "✓ Complete" : Math.max(0, MIN_WORDS - sectionWordCounts[activeSection]) + " more words"}
             </span>
           </div>
           <div style={{ flex:1, padding:"10px 14px 14px", display:"flex", flexDirection:"column" }}>
 
             {/* ── Formatting toolbar ── */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:3, marginBottom:7, padding:"6px 10px", background:"#f3f4f6", border:"1px solid #d0d5dd", borderRadius:"10px 10px 0 0", borderBottom:"none" }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:2, marginBottom:0, padding:"5px 8px", background:"#f5f6f8", border:"1px solid #e2e5ea", borderRadius:"10px 10px 0 0", borderBottom:"none" }}>
               {/* History */}
               {[
                 { t:"↩", cmd:"undo",   title:"Undo" },
                 { t:"↪", cmd:"redo",   title:"Redo" },
               ].map(b => (
                 <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
-                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#4b5563", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                   {b.t}
                 </button>
               ))}
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Text style */}
               {[
                 { t:"B",  cmd:"bold",        title:"Bold",      style:{ fontWeight:"bold" } },
@@ -1203,13 +1243,13 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 { t:"S",  cmd:"strikeThrough",title:"Strikethrough", style:{ textDecoration:"line-through" } },
               ].map(b => (
                 <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
-                  style={{ ...b.style, background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  style={{ ...b.style, background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#4b5563", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                   {b.t}
                 </button>
               ))}
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Headings */}
               {[
                 { t:"H1", cmd:"formatBlock", val:"h2", title:"Heading 1" },
@@ -1217,26 +1257,26 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 { t:"¶",  cmd:"formatBlock", val:"p",  title:"Paragraph" },
               ].map(b => (
                 <button key={b.t} title={b.title} onClick={() => execCmd(b.cmd, b.val)}
-                  style={{ background:"transparent", border:"none", borderRadius:5, padding:"0 7px", height:28, color:"#374151", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", fontFamily:"var(--font-d)" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  style={{ background:"transparent", border:"none", borderRadius:5, padding:"0 7px", height:28, color:"#4b5563", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", fontFamily:"var(--font-d)", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                   {b.t}
                 </button>
               ))}
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Lists */}
               {[
                 { t:"≡", cmd:"insertUnorderedList", title:"Bullet list" },
                 { t:"⒈", cmd:"insertOrderedList",   title:"Numbered list" },
               ].map(b => (
                 <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
-                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#4b5563", fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                   {b.t}
                 </button>
               ))}
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Indent */}
               {[
                 { t:"→", cmd:"indent",  title:"Indent" },
@@ -1249,7 +1289,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                   {b.t}
                 </button>
               ))}
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Alignment */}
               {[
                 { t:"⬛", cmd:"justifyLeft",   title:"Align left",   icon:"▤" },
@@ -1257,17 +1297,17 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 { t:"⬛", cmd:"justifyRight",  title:"Align right",  icon:"▦" },
               ].map(b => (
                 <button key={b.cmd} title={b.title} onClick={() => execCmd(b.cmd)}
-                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                  style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#4b5563", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                   {b.icon}
                 </button>
               ))}
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Font size */}
               <select onChange={e => { execCmd("fontSize", e.target.value); e.target.value=""; }}
                 defaultValue=""
-                style={{ height:28, border:"1px solid #d0d5dd", borderRadius:5, fontSize:11, color:"#374151", background:"white", cursor:"pointer", padding:"0 4px" }}>
+                style={{ height:28, border:"1px solid #e2e5ea", borderRadius:5, fontSize:11, color:"#4b5563", background:"white", cursor:"pointer", padding:"0 4px" }}>
                 <option value="" disabled>Size</option>
                 <option value="1">8pt</option>
                 <option value="2">10pt</option>
@@ -1277,46 +1317,46 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 <option value="6">24pt</option>
                 <option value="7">36pt</option>
               </select>
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Text colour */}
-              <label title="Text colour" style={{ display:"flex", alignItems:"center", justifyContent:"center", width:28, height:28, cursor:"pointer", position:"relative", borderRadius:5 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; }}
+              <label title="Text colour" style={{ display:"flex", alignItems:"center", justifyContent:"center", width:28, height:28, cursor:"pointer", position:"relative", borderRadius:5, transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
-                <span style={{ fontSize:13, fontWeight:700, color:"#374151" }}>A</span>
+                <span style={{ fontSize:13, fontWeight:700, color:"#4b5563" }}>A</span>
                 <input type="color" defaultValue="#000000" onChange={e => execCmd("foreColor", e.target.value)}
                   style={{ position:"absolute", opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
               </label>
               {/* Highlight colour */}
-              <label title="Highlight" style={{ display:"flex", alignItems:"center", justifyContent:"center", width:28, height:28, cursor:"pointer", position:"relative", borderRadius:5 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; }}
+              <label title="Highlight" style={{ display:"flex", alignItems:"center", justifyContent:"center", width:28, height:28, cursor:"pointer", position:"relative", borderRadius:5, transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
-                <span style={{ fontSize:13, background:"#FFC107", padding:"1px 3px", borderRadius:2, color:"#111" }}>H</span>
+                <span style={{ fontSize:12, background:"#FFC107", padding:"1px 4px", borderRadius:3, color:"#111", fontWeight:700 }}>H</span>
                 <input type="color" defaultValue="#FFF176" onChange={e => execCmd("hiliteColor", e.target.value)}
                   style={{ position:"absolute", opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
               </label>
-              <div style={{ width:1, background:"#d0d5dd", margin:"4px 3px" }} />
+              <div style={{ width:1, background:"#e2e5ea", margin:"5px 3px" }} />
               {/* Table */}
               <button title="Insert table" onClick={() => setShowTableModal(true)}
-                style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#4b5563", fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                 ⊞
               </button>
               {/* Formula */}
               <button title="Insert formula/equation" onClick={() => setShowFormulaModal(true)}
-                style={{ background:"transparent", border:"none", borderRadius:5, padding:"0 6px", height:28, color:"#374151", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", fontFamily:"Georgia,serif", fontStyle:"italic" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                style={{ background:"transparent", border:"none", borderRadius:5, padding:"0 6px", height:28, color:"#4b5563", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", fontFamily:"Georgia,serif", fontStyle:"italic", transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                 ƒ(x)
               </button>
               {/* Chart */}
               <button title="Insert chart" onClick={() => setShowChartModal(true)}
-                style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#374151", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.15)"; e.currentTarget.style.color = "#00C9A7"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#374151"; }}>
+                style={{ background:"transparent", border:"none", borderRadius:5, width:28, height:28, color:"#4b5563", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.14)"; e.currentTarget.style.color = "#00A688"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#4b5563"; }}>
                 📊
               </button>
-              <div style={{ marginLeft:"auto", fontSize:10, color:"#6b7280", alignSelf:"center", paddingRight:4, whiteSpace:"nowrap" }}>
+              <div style={{ marginLeft:"auto", fontSize:10, fontWeight:600, color:"#9ca3af", alignSelf:"center", paddingRight:6, whiteSpace:"nowrap", background:"rgba(0,0,0,0.04)", borderRadius:4, padding:"2px 7px" }}>
                 {wordCount} words
               </div>
             </div>
@@ -1432,22 +1472,22 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
               contentEditable
               suppressContentEditableWarning
               onInput={handleEditorInput}
-              onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px rgba(0,201,167,0.4)"; }}
-              onBlur={e => { e.currentTarget.style.boxShadow = "0 2px 14px rgba(0,0,0,0.18)"; }}
+              onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px rgba(0,201,167,0.35), 0 4px 20px rgba(0,0,0,0.15)"; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.14)"; }}
               data-placeholder={"Write section " + chapter.num + "." + (activeSection + 1) + " — " + sec.name + " here..."}
-              style={{ flex:1, minHeight:220, background:"#ffffff", border:"1px solid #d0d5dd", borderRadius:"0 0 11px 11px", padding:"20px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY:"auto", cursor:"text", boxShadow:"0 2px 14px rgba(0,0,0,0.18)" }}
+              style={{ flex:1, minHeight:220, background:"#ffffff", border:"1px solid #e2e5ea", borderRadius:"0 0 11px 11px", padding:"22px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY:"auto", cursor:"text", boxShadow:"0 2px 16px rgba(0,0,0,0.14)" }}
             />
 
-            <div style={{ marginTop:5, fontSize:11, color:"var(--grey3)", display:"flex", justifyContent:"space-between" }}>
+            <div style={{ marginTop:5, fontSize:11, color:"var(--grey4)", display:"flex", justifyContent:"space-between" }}>
               <span />
-              <span>Draft saved automatically</span>
+              <span style={{ fontStyle:"italic" }}>Draft saved automatically</span>
             </div>
           </div>
         </div>
 
-        <div ref={aiRef} className="rp-ai-panel" style={{ flexShrink:0, display:"flex", flexDirection:"column", background:"rgba(0,0,0,0.14)", overflowY:"auto" }}>
-          <div style={{ padding:"12px 12px 8px" }}>
-            <div style={{ fontSize:9, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:9 }}>AI Guidance</div>
+        <div ref={aiRef} className="rp-ai-panel" style={{ flexShrink:0, display:"flex", flexDirection:"column", background:"rgba(0,0,0,0.12)", overflowY:"auto" }}>
+          <div style={{ padding:"14px 12px 10px" }}>
+            <div style={{ fontSize:9, fontWeight:700, color:"var(--grey4)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:10 }}>AI Guidance</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
               {[
                 { id:"questions",icon:"❓", label:"Answer & write" },
@@ -1463,12 +1503,12 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                     if (t.id === "questions") { runQuestions(); return; }
                     runAI(t.id);
                   }}
-                  style={{ background: aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)", border: "1px solid " + (aiPanel === t.id ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.08)"), borderRadius:9, padding:"9px 7px", cursor:"pointer", textAlign:"left", transition:"all 0.15s", gridColumn: (t.id === "chat" || t.id === "questions") ? "1 / -1" : "auto" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.1)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = aiPanel === t.id ? "rgba(0,201,167,0.18)" : "rgba(255,255,255,0.04)"; }}
+                  style={{ background: aiPanel === t.id ? "rgba(0,201,167,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (aiPanel === t.id ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.07)"), borderRadius:10, padding:"10px 8px", cursor:"pointer", textAlign:"left", transition:"all 0.15s", gridColumn: (t.id === "chat" || t.id === "questions") ? "1 / -1" : "auto" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.1)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.3)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = aiPanel === t.id ? "rgba(0,201,167,0.15)" : "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = aiPanel === t.id ? "rgba(0,201,167,0.4)" : "rgba(255,255,255,0.07)"; }}
                 >
-                  <div style={{ fontSize:14, marginBottom:2 }}>{t.icon}</div>
-                  <div style={{ fontSize:11, color:"var(--grey2)", fontWeight:500, lineHeight:1.3 }}>{t.label}</div>
+                  <div style={{ fontSize:15, marginBottom:4 }}>{t.icon}</div>
+                  <div style={{ fontSize:11, color:"var(--grey2)", fontWeight:600, lineHeight:1.3 }}>{t.label}</div>
                 </button>
               ))}
             </div>
@@ -2018,8 +2058,8 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
   const [newPass2,    setNewPass2]    = useState("");
   const [resetMsg,    setResetMsg]    = useState("");
 
-  const inp = { width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(0,201,167,0.25)", borderRadius:10, padding:"13px 16px", color:"var(--white)", fontSize:14, fontFamily:"var(--font-b)", outline:"none" };
-  const lbl = { display:"block", fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:7 };
+  const inp = { width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"13px 16px", color:"var(--white)", fontSize:14, fontFamily:"var(--font-b)", outline:"none", transition:"all 0.2s" };
+  const lbl = { display:"block", fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:7 };
 
   const emailOk   = email.includes("@") && email.includes(".");
   const passOk    = password.length >= 6;
@@ -2276,28 +2316,32 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 16px" }}>
-      <div style={{ width:"100%", maxWidth:420 }} className="fu">
-        <div style={{ textAlign:"center", margin:"0 auto 28px" }}>
+    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 16px", position:"relative", overflow:"hidden" }}>
+      {/* Ambient glow */}
+      <div style={{ position:"absolute", top:"-5%", left:"50%", transform:"translateX(-50%)", width:700, height:500, background:"radial-gradient(ellipse, rgba(0,201,167,0.06) 0%, transparent 65%)", pointerEvents:"none" }} />
+      <div style={{ width:"100%", maxWidth:440, position:"relative" }} className="fu">
+        <div style={{ textAlign:"center", margin:"0 auto 32px" }}>
           <ProjectaWordmark size={80} />
         </div>
 
         {/* Mode tabs */}
-        <div style={{ display:"flex", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:4, marginBottom:24 }}>
+        <div style={{ display:"flex", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:5, marginBottom:28 }}>
           {["login","signup"].map(m => (
             <button key={m} onClick={() => { setMode(m); setErr(""); }}
-              style={{ flex:1, background: mode===m ? "rgba(0,201,167,0.15)" : "transparent", border: mode===m ? "1px solid rgba(0,201,167,0.35)" : "1px solid transparent", borderRadius:9, padding:"10px 0", color: mode===m ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, cursor:"pointer", transition:"all 0.2s" }}>
+              style={{ flex:1, background: mode===m ? "rgba(0,201,167,0.15)" : "transparent", border: mode===m ? "1px solid rgba(0,201,167,0.3)" : "1px solid transparent", borderRadius:10, padding:"10px 0", color: mode===m ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, cursor:"pointer", transition:"all 0.2s" }}>
               {m === "login" ? "Log In" : "Sign Up"}
             </button>
           ))}
         </div>
 
+        <div style={{ background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"28px 24px", boxShadow:"0 20px 60px rgba(0,0,0,0.4)" }}>
+
         {/* Role toggle (signup only) */}
         {mode === "signup" && (
-          <div style={{ display:"flex", gap:10, marginBottom:20 }}>
+          <div style={{ display:"flex", gap:8, marginBottom:22 }}>
             {["student","supervisor","institution"].map(r => (
               <button key={r} onClick={() => setRole(r)}
-                style={{ flex:1, background: role===r ? "rgba(0,201,167,0.1)" : "rgba(255,255,255,0.03)", border: role===r ? "1px solid rgba(0,201,167,0.45)" : "1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"11px 0", color: role===r ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", transition:"all 0.2s" }}>
+                style={{ flex:1, background: role===r ? "rgba(0,201,167,0.12)" : "rgba(255,255,255,0.03)", border: role===r ? "1px solid rgba(0,201,167,0.45)" : "1px solid rgba(255,255,255,0.08)", borderRadius:10, padding:"11px 4px", color: role===r ? "var(--teal)" : "var(--grey3)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:11, cursor:"pointer", transition:"all 0.2s" }}>
                 {r === "student" ? "👨‍🎓 Student" : r === "supervisor" ? "🎓 Supervisor" : "🏫 Institution"}
               </button>
             ))}
@@ -2322,10 +2366,10 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
             {role === "supervisor" && (
               <div style={{ marginBottom:14 }}>
                 <label style={lbl}>Academic Title</label>
-                <select style={{ ...inp, cursor:"pointer", color: title ? "var(--white)" : "var(--grey3)" }} value={title} onChange={e => setTitle(e.target.value)}>
-                  <option value="" style={{ background:"#1A2E42", color:"var(--grey3)" }}>Select title (optional)</option>
+                <select style={{ ...inp, cursor:"pointer", color: title ? "var(--white)" : "rgba(136,146,160,0.5)" }} value={title} onChange={e => setTitle(e.target.value)}>
+                  <option value="" style={{ background:"#162436", color:"var(--grey3)" }}>Select title (optional)</option>
                   {["Dr.","Prof.","Assoc. Prof.","Mr.","Mrs.","Ms.","Engr.","Barr."].map(t => (
-                    <option key={t} value={t} style={{ background:"#1A2E42", color:"var(--white)" }}>{t}</option>
+                    <option key={t} value={t} style={{ background:"#162436", color:"var(--white)" }}>{t}</option>
                   ))}
                 </select>
               </div>
@@ -2336,9 +2380,9 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
             </div>
             <div style={{ marginBottom:14 }}>
               <label style={lbl}>Department</label>
-              <select style={{ ...inp, cursor:"pointer", color: dept ? "var(--white)" : "var(--grey3)" }} value={dept} onChange={e => setDept(e.target.value)}>
-                <option value="" disabled style={{ background:"#1A2E42" }}>Select department</option>
-                {DEPTS_AUTH.map(d => <option key={d} value={d} style={{ background:"#1A2E42", color:"var(--white)" }}>{d}</option>)}
+              <select style={{ ...inp, cursor:"pointer", color: dept ? "var(--white)" : "rgba(136,146,160,0.5)" }} value={dept} onChange={e => setDept(e.target.value)}>
+                <option value="" disabled style={{ background:"#162436" }}>Select department</option>
+                {DEPTS_AUTH.map(d => <option key={d} value={d} style={{ background:"#162436", color:"var(--white)" }}>{d}</option>)}
               </select>
             </div>
             <div style={{ marginBottom:14 }}>
@@ -2357,16 +2401,16 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
           <label style={lbl}>Password {mode==="signup" && <span style={{ color:"var(--grey3)", fontWeight:400, textTransform:"none", fontSize:10 }}>— min. 6 characters</span>}</label>
           <div style={{ position:"relative" }}>
             <input style={{ ...inp, paddingRight:44 }} type={showPass ? "text" : "password"} placeholder={mode==="signup" ? "Create a password" : "Your password"} value={password} onChange={e => setPassword(e.target.value)} />
-            <button onClick={() => setShowPass(p => !p)} style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:13, padding:0 }}>
+            <button onClick={() => setShowPass(p => !p)} style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"var(--grey3)", cursor:"pointer", fontSize:12, padding:0, fontWeight:600 }}>
               {showPass ? "Hide" : "Show"}
             </button>
           </div>
         </div>
 
         {mode === "login" && (
-          <div style={{ textAlign:"right", marginTop:-14, marginBottom:16 }}>
+          <div style={{ textAlign:"right", marginTop:-14, marginBottom:18 }}>
             <button onClick={() => { setMode("reset"); setResetStep(1); setResetEmail(email); setResetMsg(""); setErr(""); }}
-              style={{ background:"none", border:"none", color:"var(--grey3)", fontSize:12, cursor:"pointer", textDecoration:"underline", padding:0 }}>
+              style={{ background:"none", border:"none", color:"var(--grey3)", fontSize:12, cursor:"pointer", padding:0 }}>
               Forgot password?
             </button>
           </div>
@@ -2374,12 +2418,12 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
 
         {/* Error */}
         {err && (
-          <div style={{ background:"rgba(255,80,80,0.1)", border:"1px solid rgba(255,80,80,0.3)", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#FF6B6B", marginBottom:16 }}>
+          <div style={{ background:"rgba(255,80,80,0.08)", border:"1px solid rgba(255,80,80,0.25)", borderRadius:10, padding:"11px 14px", fontSize:13, color:"#FF7070", marginBottom:16, lineHeight:1.5 }}>
             {err}
             {err.includes("No account") && (
               <div style={{ marginTop:8 }}>
                 <button onClick={() => { setMode("signup"); setErr(""); }}
-                  style={{ background:"transparent", border:"none", color:"var(--teal)", fontSize:12, cursor:"pointer", textDecoration:"underline", padding:0 }}>
+                  style={{ background:"transparent", border:"none", color:"var(--teal)", fontSize:12, cursor:"pointer", padding:0, fontWeight:600 }}>
                   Create a new account instead →
                 </button>
               </div>
@@ -2391,16 +2435,18 @@ function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAcc
         <button
           onClick={mode === "login" ? handleLogin : handleSignup}
           disabled={loading || (mode==="login" ? !loginOk : !signupOk)}
-          style={{ width:"100%", background: (mode==="login" ? loginOk : signupOk) ? "var(--teal)" : "rgba(0,201,167,0.2)", color: (mode==="login" ? loginOk : signupOk) ? "var(--navy)" : "var(--grey3)", border:"none", borderRadius:10, padding:"14px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:15, cursor: (mode==="login" ? loginOk : signupOk) ? "pointer" : "not-allowed", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          className="btn-primary"
+          style={{ width:"100%", fontSize:15, padding:"14px 0", opacity: (mode==="login" ? loginOk : signupOk) && !loading ? 1 : 0.5, display:"flex", alignItems:"center", justifyContent:"center" }}>
           {loading ? <Spinner /> : null}
           {loading ? "Please wait..." : mode === "login" ? "Log in →" : "Create account →"}
         </button>
 
-        <div style={{ textAlign:"center", marginTop:16, fontSize:12, color:"var(--grey3)" }}>
+        <div style={{ textAlign:"center", marginTop:18, fontSize:12, color:"var(--grey3)" }}>
           {mode === "login"
-            ? <span>No account? <button onClick={() => { setMode("signup"); setErr(""); }} style={{ background:"none", border:"none", color:"var(--teal)", cursor:"pointer", fontSize:12, textDecoration:"underline" }}>Sign up free</button></span>
-            : <span>Already have an account? <button onClick={() => { setMode("login"); setErr(""); }} style={{ background:"none", border:"none", color:"var(--teal)", cursor:"pointer", fontSize:12, textDecoration:"underline" }}>Log in</button></span>
+            ? <span>No account? <button onClick={() => { setMode("signup"); setErr(""); }} style={{ background:"none", border:"none", color:"var(--teal)", cursor:"pointer", fontSize:12, fontWeight:700, padding:0 }}>Sign up free</button></span>
+            : <span>Already have an account? <button onClick={() => { setMode("login"); setErr(""); }} style={{ background:"none", border:"none", color:"var(--teal)", cursor:"pointer", fontSize:12, fontWeight:700, padding:0 }}>Log in</button></span>
           }
+        </div>
         </div>
       </div>
     </div>
@@ -2585,52 +2631,50 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
 
   const statusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
   const statusLabel = { pending:"Pending review", approved:"Approved ✓", minor:"Minor revision", major:"Major revision" };
-  const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"18px 20px" };
+  const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"18px 20px", boxShadow:"0 2px 16px rgba(0,0,0,0.28)" };
 
   return (
     <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
 
       {/* Nav */}
       <div className="rp-nav">
-        <ProjectaIcon size={30} />
+        <ProjectaIcon size={28} />
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <button onClick={onGoToChapters}
-            style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
+          <button onClick={onGoToChapters} className="btn-teal-outline">
             Chapters
           </button>
           <NotificationBell userKey={project && project.studentName ? project.studentName.trim().toLowerCase().replace(/[^a-z0-9]/gi,"_") : "student"} />
-          <button onClick={onSignOut}
-            style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
+          <button onClick={onSignOut} className="btn-ghost">
             Sign out
           </button>
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"26px 0 40px" }}><div className="rp-container">
+      <div style={{ flex:1, overflowY:"auto", padding:"28px 0 48px" }}><div className="rp-container">
 
         {/* Greeting */}
-        <div style={{ marginBottom:24 }} className="fu">
-          <div style={{ fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>
+        <div style={{ marginBottom:26 }} className="fu">
+          <div style={{ fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>
             {project.dept} · {project.uni}
           </div>
-          <div style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", lineHeight:1.25, marginBottom:6 }}>
-            {"Welcome back, " + firstName + "."}
+          <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", lineHeight:1.25, marginBottom:6 }}>
+            {"Welcome back, " + firstName + " 👋"}
           </div>
-          <div style={{ fontSize:13, color:"var(--grey3)", lineHeight:1.6 }}>{project.topic}</div>
+          <div style={{ fontSize:13, color:"var(--grey3)", lineHeight:1.65, maxWidth:500 }}>{project.topic}</div>
         </div>
 
         {/* Progress card */}
-        <div style={{ ...card, marginBottom:14 }} className="fu">
-          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:14 }}>
+        <div style={{ ...card, marginBottom:14, background:"linear-gradient(135deg, var(--navy2) 0%, rgba(0,201,167,0.06) 100%)", borderColor:"rgba(0,201,167,0.18)" }} className="fu">
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:16 }}>
             <div>
               <div style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:3 }}>Overall Progress</div>
               <div style={{ fontSize:11, color:"var(--grey3)" }}>{submittedCount} of 5 chapters submitted · {totalWords.toLocaleString()} words</div>
             </div>
-            <div style={{ fontFamily:"var(--font-d)", fontSize:28, fontWeight:800, color:"var(--teal)", lineHeight:1 }}>{pct}<span style={{ fontSize:14, color:"var(--grey3)" }}>%</span></div>
+            <div style={{ fontFamily:"var(--font-d)", fontSize:32, fontWeight:800, color:"var(--teal)", lineHeight:1 }}>{pct}<span style={{ fontSize:14, color:"var(--grey4)", fontWeight:600 }}>%</span></div>
           </div>
           {/* Big progress bar */}
-          <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:999, height:10, overflow:"hidden", marginBottom:14 }}>
-            <div style={{ height:"100%", width:pct + "%", background:"linear-gradient(90deg, #007A65, #00C9A7)", borderRadius:999, transition:"width 0.7s ease" }} />
+          <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:999, height:8, overflow:"hidden", marginBottom:16 }}>
+            <div style={{ height:"100%", width:pct + "%", background:"linear-gradient(90deg, var(--teal3), var(--teal))", borderRadius:999, transition:"width 0.8s cubic-bezier(0.16,1,0.3,1)", boxShadow:"0 0 12px rgba(0,201,167,0.4)" }} />
           </div>
           {/* Chapter pills */}
           <div style={{ display:"flex", gap:6 }}>
@@ -2640,10 +2684,10 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
               const dot  = done ? (fb ? statusColor[fb.status] || "#4CAF50" : "#4CAF50") : "rgba(255,255,255,0.15)";
               return (
                 <button key={ch.num} onClick={() => onGoToChapter(ch)}
-                  style={{ flex:1, background: done ? "rgba(0,201,167,0.07)" : "rgba(255,255,255,0.03)", border:"1px solid " + (done ? "rgba(0,201,167,0.22)" : "rgba(255,255,255,0.07)"), borderRadius:9, padding:"9px 4px", cursor:"pointer", textAlign:"center", transition:"all 0.15s" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.45)"; e.currentTarget.style.background = "rgba(0,201,167,0.1)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = done ? "rgba(0,201,167,0.22)" : "rgba(255,255,255,0.07)"; e.currentTarget.style.background = done ? "rgba(0,201,167,0.07)" : "rgba(255,255,255,0.03)"; }}>
-                  <div style={{ fontFamily:"var(--font-d)", fontSize:11, fontWeight:700, color: done ? "var(--teal)" : "var(--grey3)", marginBottom:5 }}>Ch.{ch.num}</div>
+                  style={{ flex:1, background: done ? "rgba(0,201,167,0.08)" : "rgba(255,255,255,0.03)", border:"1px solid " + (done ? "rgba(0,201,167,0.25)" : "rgba(255,255,255,0.07)"), borderRadius:10, padding:"10px 4px", cursor:"pointer", textAlign:"center", transition:"all 0.18s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,201,167,0.5)"; e.currentTarget.style.background = "rgba(0,201,167,0.12)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = done ? "rgba(0,201,167,0.25)" : "rgba(255,255,255,0.07)"; e.currentTarget.style.background = done ? "rgba(0,201,167,0.08)" : "rgba(255,255,255,0.03)"; e.currentTarget.style.transform = ""; }}>
+                  <div style={{ fontFamily:"var(--font-d)", fontSize:11, fontWeight:700, color: done ? "var(--teal)" : "var(--grey3)", marginBottom:6 }}>Ch.{ch.num}</div>
                   <div style={{ width:8, height:8, borderRadius:"50%", background:dot, margin:"0 auto" }} />
                 </button>
               );
@@ -2653,17 +2697,16 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
 
         {/* Feedback alert */}
         {!loadingFeedback && hasFeedback.length > 0 && (
-          <div style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.28)", borderRadius:14, padding:"16px 18px", marginBottom:14 }} className="fu">
-            <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+          <div style={{ background:"rgba(255,193,7,0.05)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:14, padding:"16px 18px", marginBottom:14, boxShadow:"0 0 20px rgba(255,193,7,0.06)" }} className="fu">
+            <div style={{ fontSize:10, fontWeight:700, color:"#FFC107", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12 }}>
               💬 Supervisor Feedback Ready
             </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               {hasFeedback.map(n => {
                 const fb = feedback[n];
                 const ch = CHAPTERS.find(c => c.num === n);
                 return (
                   <div key={n} onClick={() => {
-                      // Mark this feedback as read
                       const fbSavedAt = feedback[n] && (feedback[n].savedAt || feedback[n].resubmittedAt || "viewed");
                       const updated = { ...readFeedback, [n]: fbSavedAt };
                       setReadFeedback(updated);
@@ -2673,16 +2716,16 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
                       } catch(e) {}
                       onViewSubmission && onViewSubmission(ch, feedback[n]);
                     }}
-                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:9, padding:"10px 14px", cursor:"pointer", transition:"all 0.15s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,193,7,0.35)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,193,7,0.15)", borderRadius:10, padding:"11px 14px", cursor:"pointer", transition:"all 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,193,7,0.4)"; e.currentTarget.style.background = "rgba(255,193,7,0.04)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,193,7,0.15)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
                     <div>
-                      <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", marginBottom:2 }}>Ch.{n} — {ch ? ch.title : ""}</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:2 }}>Ch.{n} — {ch ? ch.title : ""}</div>
                       <div style={{ fontSize:11, fontWeight:600, color: statusColor[fb.status] || "var(--grey3)" }}>
                         {fb.status && fb.status !== "pending" ? statusLabel[fb.status] : "Feedback received"}
                       </div>
                     </div>
-                    <span style={{ fontSize:12, color:"#FFC107", fontWeight:700 }}>View →</span>
+                    <span style={{ fontSize:12, color:"#FFC107", fontWeight:700, whiteSpace:"nowrap" }}>View →</span>
                   </div>
                 );
               })}
@@ -2695,26 +2738,23 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
 
           {/* Next chapter */}
           <div style={{ ...card }}>
-            <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:10 }}>
               {nextChapter ? "Up Next" : "All Done 🎉"}
             </div>
             {nextChapter ? (
               <>
-                <div style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)", marginBottom:4, lineHeight:1.3 }}>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:14, fontWeight:700, color:"var(--white)", marginBottom:4, lineHeight:1.35 }}>
                   Chapter {nextChapter.num}: {nextChapter.title}
                 </div>
                 <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.5, marginBottom:14 }}>
                   {nextChapter.sections.length} sections
                 </div>
-                <button onClick={() => onGoToChapter(nextChapter)}
-                  style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:8, padding:"10px 0", fontFamily:"var(--font-d)", fontWeight:700, fontSize:13, cursor:"pointer" }}
-                  onMouseEnter={e => { e.target.style.background = "var(--teal2)"; }}
-                  onMouseLeave={e => { e.target.style.background = "var(--teal)"; }}>
+                <button onClick={() => onGoToChapter(nextChapter)} className="btn-primary" style={{ width:"100%", fontSize:13, padding:"10px 0" }}>
                   {submittedCount === 0 ? "Start writing →" : "Keep writing →"}
                 </button>
               </>
             ) : (
-              <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>
+              <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.65 }}>
                 All 5 chapters submitted. Check for final supervisor feedback.
               </div>
             )}
@@ -2722,25 +2762,25 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
 
           {/* Supervisor */}
           <div style={{ ...card }}>
-            <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:10 }}>Supervisor</div>
+            <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:10 }}>Supervisor</div>
             {project.supervisorName ? (
               <>
-                <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:10 }}>
-                  <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.28)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:700, fontSize:14, color:"var(--teal)", flexShrink:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                  <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"var(--font-d)", fontWeight:800, fontSize:14, color:"var(--teal)", flexShrink:0 }}>
                     {project.supervisorName.replace("Code: ","").charAt(0).toUpperCase()}
                   </div>
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", lineHeight:1.3 }}>{project.supervisorName.replace("Code: ","")}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:"var(--white)", lineHeight:1.3 }}>{project.supervisorName.replace("Code: ","")}</div>
                     <div style={{ fontSize:11, color:"var(--grey3)" }}>{project.dept}</div>
                   </div>
                 </div>
-                <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(0,201,167,0.07)", border:"1px solid rgba(0,201,167,0.18)", borderRadius:20, padding:"3px 10px" }}>
+                <span className="pill pill-teal">
                   <span style={{ width:5, height:5, borderRadius:"50%", background:"var(--teal)", display:"inline-block" }} />
-                  <span style={{ fontSize:10, color:"var(--teal)", fontWeight:600 }}>Connected</span>
-                </div>
+                  Connected
+                </span>
               </>
             ) : (
-              <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.6 }}>No supervisor connected yet.</div>
+              <div style={{ fontSize:12, color:"var(--grey3)", lineHeight:1.65 }}>No supervisor connected yet.</div>
             )}
           </div>
         </div>
@@ -2752,18 +2792,18 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
             { icon:"📤", val: submittedCount + "/5",        label:"Submitted" },
             { icon:"💬", val: submittedNums.filter(n => feedback[n]).length, label:"Feedback items" },
           ].map((s, i) => (
-            <div key={i} style={{ ...card, textAlign:"center", padding:"14px 8px" }}>
-              <div style={{ fontSize:18, marginBottom:4 }}>{s.icon}</div>
-              <div style={{ fontFamily:"var(--font-d)", fontSize:20, fontWeight:800, color:"var(--teal)", lineHeight:1, marginBottom:3 }}>{s.val}</div>
-              <div style={{ fontSize:10, color:"var(--grey3)", fontWeight:600 }}>{s.label}</div>
+            <div key={i} style={{ ...card, textAlign:"center", padding:"16px 8px" }}>
+              <div style={{ fontSize:20, marginBottom:6 }}>{s.icon}</div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:22, fontWeight:800, color:"var(--teal)", lineHeight:1, marginBottom:4 }}>{s.val}</div>
+              <div style={{ fontSize:10, color:"var(--grey3)", fontWeight:600, letterSpacing:"0.04em" }}>{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* Quick actions */}
         <div style={{ ...card, marginBottom:14 }}>
-          <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12 }}>Quick Actions</div>
-          <div className="rp-grid-4" style={{ display:"grid", gap:8 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"var(--grey3)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Quick Actions</div>
+          <div className="rp-grid-4" style={{ display:"grid", gap:10 }}>
             {[
               { icon:"📋", label:"All chapters",    sub:"Full chapter list & status",       fn: onGoToChapters },
               { icon:"✍️", label:"Continue writing", sub: nextChapter ? "Ch." + nextChapter.num + " — " + nextChapter.title : "All chapters done", fn: nextChapter ? () => onGoToChapter(nextChapter) : onGoToChapters },
@@ -2771,21 +2811,21 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
               { icon:"📚", label:"Resources",       sub:"Library, citation guide & tools",  fn: onGoToResources },
             ].map((a, i) => (
               <button key={i} onClick={a.fn}
-                style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.25)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
-                <div style={{ fontSize:18, marginBottom:5 }}>{a.icon}</div>
-                <div style={{ fontSize:12, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{a.label}</div>
-                <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.4 }}>{a.sub}</div>
+                style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 14px", cursor:"pointer", textAlign:"left", transition:"all 0.18s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.07)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.28)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = ""; }}>
+                <div style={{ fontSize:20, marginBottom:8 }}>{a.icon}</div>
+                <div style={{ fontSize:12, fontWeight:700, color:"var(--white)", marginBottom:3 }}>{a.label}</div>
+                <div style={{ fontSize:11, color:"var(--grey3)", lineHeight:1.45 }}>{a.sub}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Rotating tip */}
-        <div style={{ background:"rgba(0,201,167,0.04)", border:"1px solid rgba(0,201,167,0.13)", borderRadius:12, padding:"14px 18px" }}>
-          <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>💡 Writing Tip</div>
-          <div key={tipIdx} className="fi" style={{ fontSize:13, color:"rgba(196,201,208,0.9)", lineHeight:1.75, fontStyle:"italic" }}>
+        <div style={{ background:"rgba(0,201,167,0.04)", border:"1px solid rgba(0,201,167,0.12)", borderRadius:14, padding:"16px 20px" }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:8 }}>💡 Writing Tip</div>
+          <div key={tipIdx} className="fi" style={{ fontSize:13, color:"var(--grey2)", lineHeight:1.8, fontStyle:"italic" }}>
             {TIPS[tipIdx]}
           </div>
         </div>
@@ -3589,11 +3629,10 @@ function SupervisorDashboard({ supervisor, onBack }) {
         !reviewedKeys.has(s.name + "_" + parseInt(chNum))
       ).length, 0);
     const activeStudents  = students.filter(s => Object.keys(s.submittedChapters || {}).length > 0);
-    const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:14, padding:"18px 20px" };
+    const card = { background:"var(--navy2)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"18px 20px", boxShadow:"0 2px 16px rgba(0,0,0,0.25)" };
     const statusColor = { pending:"var(--grey3)", approved:"#4CAF50", minor:"#FFC107", major:"#FF7043" };
 
     // reviewQueue — only chapters NOT yet reviewed
-    // Uses reviewedKeys Set which updates the instant supervisor saves feedback
     const reviewQueue = [];
     students.forEach(s => {
       Object.keys(s.submittedChapters || {}).forEach(chNum => {
@@ -3610,35 +3649,28 @@ function SupervisorDashboard({ supervisor, onBack }) {
         {/* Nav */}
         <div className="rp-nav">
           <div>
-            <ProjectaIcon size={30} />
-            <div style={{ fontSize:11, color:"var(--grey3)" }}>Supervisor · {(supervisor.title ? supervisor.title + " " : "") + supervisor.name}</div>
+            <ProjectaIcon size={28} />
+            <div style={{ fontSize:11, color:"var(--grey3)", marginTop:2 }}>Supervisor · {(supervisor.title ? supervisor.title + " " : "") + supervisor.name}</div>
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <button onClick={() => setView("list")}
-              style={{ background:"rgba(0,201,167,0.08)", border:"1px solid rgba(0,201,167,0.2)", borderRadius:8, padding:"6px 13px", color:"var(--teal)", fontSize:12, cursor:"pointer", fontWeight:600 }}>
-              All students
-            </button>
-            <button onClick={() => loadStudents(true)} disabled={refreshing}
-              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color: refreshing ? "var(--grey3)" : "var(--grey2)", fontSize:12, cursor:"pointer" }}>
+            <button onClick={() => setView("list")} className="btn-teal-outline">All students</button>
+            <button onClick={() => loadStudents(true)} disabled={refreshing} className="btn-ghost">
               {refreshing ? "Refreshing..." : "↻ Refresh"}
             </button>
             <NotificationBell userKey={(supervisor && supervisor.code) ? supervisor.code.replace(/[^a-z0-9]/gi,"_").toLowerCase() : "supervisor"} />
-            <button onClick={onBack}
-              style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 13px", color:"var(--grey3)", fontSize:12, cursor:"pointer" }}>
-              Sign out
-            </button>
+            <button onClick={onBack} className="btn-ghost">Sign out</button>
           </div>
         </div>
 
-        <div style={{ flex:1, overflowY:"auto", padding:"26px 0 40px" }}><div className="rp-container">
+        <div style={{ flex:1, overflowY:"auto", padding:"28px 0 48px" }}><div className="rp-container">
 
           {/* Greeting */}
-          <div style={{ marginBottom:24 }} className="fu">
-            <div style={{ fontSize:11, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>
+          <div style={{ marginBottom:26 }} className="fu">
+            <div style={{ fontSize:11, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>
               {supervisor.dept} · {supervisor.uni}
             </div>
-            <div style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", lineHeight:1.25, marginBottom:6 }}>
-              {"Welcome back, " + (supervisor.title ? supervisor.title + " " : "") + supervisor.name.split(" ").slice(-1)[0] + "."}
+            <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--white)", letterSpacing:"-0.5px", lineHeight:1.25, marginBottom:6 }}>
+              {"Welcome back, " + (supervisor.title ? supervisor.title + " " : "") + supervisor.name.split(" ").slice(-1)[0] + " 👋"}
             </div>
             <div style={{ fontSize:13, color:"var(--grey3)" }}>Here is your supervision overview.</div>
           </div>
@@ -3651,27 +3683,25 @@ function SupervisorDashboard({ supervisor, onBack }) {
               { icon:"✅", val: activeStudents.length, label:"Active students", sub:"have submitted work" },
             ].map((s, i) => (
               <div key={i} style={{ ...card, textAlign:"center", padding:"16px 8px" }}>
-                <div style={{ fontSize:20, marginBottom:6 }}>{s.icon}</div>
-                <div style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:800, color:"var(--teal)", lineHeight:1, marginBottom:4 }}>{s.val}</div>
-                <div style={{ fontSize:11, fontWeight:600, color:"var(--white)", marginBottom:2 }}>{s.label}</div>
+                <div style={{ fontSize:22, marginBottom:6 }}>{s.icon}</div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:28, fontWeight:800, color:"var(--teal)", lineHeight:1, marginBottom:4 }}>{s.val}</div>
+                <div style={{ fontSize:11, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{s.label}</div>
                 <div style={{ fontSize:10, color:"var(--grey3)" }}>{s.sub}</div>
               </div>
             ))}
           </div>
 
           {/* Supervisor code card */}
-          <div style={{ ...card, background:"rgba(0,201,167,0.05)", border:"1px solid rgba(0,201,167,0.2)", marginBottom:16 }} className="fu">
+          <div style={{ ...card, background:"linear-gradient(135deg, rgba(0,201,167,0.07) 0%, var(--navy2) 100%)", border:"1px solid rgba(0,201,167,0.22)", marginBottom:16 }} className="fu">
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
               <div>
-                <div style={{ fontSize:10, fontWeight:600, color:"var(--teal)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:6 }}>Your Supervisor Code</div>
-                <div style={{ fontFamily:"var(--font-d)", fontSize:34, fontWeight:800, color:"var(--white)", letterSpacing:"6px", lineHeight:1 }}>{supervisor.code}</div>
-                <div style={{ fontSize:11, color:"var(--grey3)", marginTop:6 }}>Students enter this code during project setup to connect to you.</div>
+                <div style={{ fontSize:10, fontWeight:700, color:"var(--teal)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Your Supervisor Code</div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:34, fontWeight:800, color:"var(--white)", letterSpacing:"8px", lineHeight:1 }}>{supervisor.code}</div>
+                <div style={{ fontSize:11, color:"var(--grey3)", marginTop:7 }}>Students enter this code during project setup to connect to you.</div>
               </div>
               <button
                 onClick={() => { try { navigator.clipboard && navigator.clipboard.writeText(supervisor.code); } catch(e) {} }}
-                style={{ background:"rgba(0,201,167,0.12)", border:"1px solid rgba(0,201,167,0.3)", borderRadius:9, padding:"9px 16px", color:"var(--teal)", fontFamily:"var(--font-d)", fontWeight:700, fontSize:12, cursor:"pointer", flexShrink:0 }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.22)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,201,167,0.12)"; }}>
+                className="btn-teal-outline" style={{ fontSize:12 }}>
                 Copy code
               </button>
             </div>
@@ -3680,48 +3710,38 @@ function SupervisorDashboard({ supervisor, onBack }) {
           {/* Review queue */}
           <div style={{ ...card, marginBottom:16 }} className="fu">
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-              <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--grey3)", letterSpacing:"0.12em", textTransform:"uppercase" }}>
                 Review Queue
               </div>
               {reviewQueue.length > 0 && (
-                <div style={{ background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.3)", borderRadius:20, padding:"2px 10px", fontSize:10, fontWeight:700, color:"#FFC107" }}>
-                  {reviewQueue.length} pending
-                </div>
+                <span className="pill pill-yellow">{reviewQueue.length} pending</span>
               )}
             </div>
             {reviewQueue.length === 0 ? (
               <div style={{ textAlign:"center", padding:"20px 0" }}>
-                <div style={{ fontSize:24, marginBottom:8 }}>✓</div>
+                <div style={{ fontSize:26, marginBottom:8 }}>✓</div>
                 <div style={{ fontSize:13, color:"var(--grey3)" }}>No pending submissions right now.</div>
               </div>
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {reviewQueue.slice(0, 5).map((item, i) => {
                   const ch = CHAPTERS.find(c => c.num === item.chNum);
-                  const subCount = Object.keys(item.student.submittedChapters || {}).length;
                   return (
                     <div key={i}
                       onClick={() => { setActiveStudent(item.student); setActiveChapter(item.chNum); setView("chapter"); }}
-                      style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", transition:"all 0.15s" }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.25)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                      style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", cursor:"pointer", transition:"all 0.18s" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,201,167,0.06)"; e.currentTarget.style.borderColor = "rgba(0,201,167,0.25)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = ""; }}>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color:"var(--white)", marginBottom:2 }}>{item.student.name}</div>
-                        <div style={{ fontSize:11, color:"var(--grey3)" }}>
-                          {"Chapter " + item.chNum + (ch ? ": " + ch.title : "")}
-                        </div>
+                        <div style={{ fontSize:13, fontWeight:700, color:"var(--white)", marginBottom:2 }}>{item.student.name}</div>
+                        <div style={{ fontSize:11, color:"var(--grey3)" }}>{"Chapter " + item.chNum + (ch ? ": " + ch.title : "")}</div>
                       </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-                        <span style={{ background:"rgba(255,193,7,0.12)", border:"1px solid rgba(255,193,7,0.25)", borderRadius:6, padding:"3px 8px", fontSize:10, fontWeight:600, color:"#FFC107" }}>
-                          Review →
-                        </span>
-                      </div>
+                      <span className="pill pill-yellow">Review →</span>
                     </div>
                   );
                 })}
                 {reviewQueue.length > 5 && (
-                  <button onClick={() => setView("list")}
-                    style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.08)", borderRadius:9, padding:"9px", color:"var(--grey3)", fontSize:12, cursor:"pointer", fontFamily:"var(--font-d)", fontWeight:600 }}>
+                  <button onClick={() => setView("list")} className="btn-ghost" style={{ fontSize:12, width:"100%" }}>
                     {"+ " + (reviewQueue.length - 5) + " more — view all students"}
                   </button>
                 )}
@@ -3732,26 +3752,24 @@ function SupervisorDashboard({ supervisor, onBack }) {
           {/* Student progress overview */}
           {students.length > 0 && (
             <div style={{ ...card, marginBottom:16 }} className="fu">
-              <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:14 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:"var(--grey3)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>
                 Student Progress
               </div>
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
                 {students.map((s, i) => {
                   const subCount = Object.keys(s.submittedChapters || {}).length;
                   const pct = Math.round((subCount / 5) * 100);
                   return (
-                    <div key={i}
-                      onClick={() => setView("list")}
-                      style={{ cursor:"pointer" }}>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+                    <div key={i} onClick={() => setView("list")} style={{ cursor:"pointer" }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
                         <div>
-                          <span style={{ fontSize:12, fontWeight:600, color:"var(--white)", marginRight:8 }}>{s.name}</span>
+                          <span style={{ fontSize:12, fontWeight:700, color:"var(--white)", marginRight:8 }}>{s.name}</span>
                           <span style={{ fontSize:11, color:"var(--grey3)" }}>{s.dept}</span>
                         </div>
                         <span style={{ fontSize:11, fontWeight:700, color: subCount > 0 ? "var(--teal)" : "var(--grey3)" }}>{subCount}/5</span>
                       </div>
-                      <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:999, height:6, overflow:"hidden" }}>
-                        <div style={{ height:"100%", width:pct + "%", background: pct === 100 ? "#4CAF50" : "linear-gradient(90deg, #007A65, #00C9A7)", borderRadius:999, transition:"width 0.5s" }} />
+                      <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:999, height:5, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:pct + "%", background: pct === 100 ? "#4CAF50" : "linear-gradient(90deg, var(--teal3), var(--teal))", borderRadius:999, transition:"width 0.6s ease" }} />
                       </div>
                     </div>
                   );
@@ -3762,13 +3780,13 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
           {/* Empty state — no students yet */}
           {students.length === 0 && !loading && (
-            <div style={{ ...card, textAlign:"center", padding:"28px 20px" }} className="fu">
-              <div style={{ fontSize:32, marginBottom:10 }}>👋</div>
-              <div style={{ fontFamily:"var(--font-d)", fontSize:16, fontWeight:700, color:"var(--white)", marginBottom:6 }}>No students yet</div>
-              <div style={{ fontSize:13, color:"var(--grey3)", lineHeight:1.7, marginBottom:16 }}>
+            <div style={{ ...card, textAlign:"center", padding:"32px 20px" }} className="fu">
+              <div style={{ fontSize:36, marginBottom:12 }}>👋</div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:16, fontWeight:700, color:"var(--white)", marginBottom:8 }}>No students yet</div>
+              <div style={{ fontSize:13, color:"var(--grey3)", lineHeight:1.7, marginBottom:18 }}>
                 Share your code with your students. They enter it during project setup to connect to you.
               </div>
-              <div style={{ background:"rgba(0,0,0,0.3)", border:"2px solid rgba(0,201,167,0.35)", borderRadius:10, padding:"12px 20px", fontFamily:"var(--font-d)", fontSize:32, fontWeight:800, color:"var(--white)", letterSpacing:"6px", display:"inline-block" }}>
+              <div style={{ background:"rgba(0,0,0,0.3)", border:"2px solid rgba(0,201,167,0.35)", borderRadius:12, padding:"14px 24px", fontFamily:"var(--font-d)", fontSize:32, fontWeight:800, color:"var(--white)", letterSpacing:"8px", display:"inline-block" }}>
                 {supervisor.code}
               </div>
             </div>
@@ -3776,7 +3794,7 @@ function SupervisorDashboard({ supervisor, onBack }) {
 
           {/* Quick actions */}
           <div style={{ ...card }} className="fu">
-            <div style={{ fontSize:10, fontWeight:600, color:"var(--grey3)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:12 }}>Quick Actions</div>
+            <div style={{ fontSize:10, fontWeight:700, color:"var(--grey3)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Quick Actions</div>
             <div className="rp-grid-4" style={{ display:"grid", gap:8 }}>
               {[
                 { icon:"👥", label:"All students",    sub:"View full student list",         fn: () => setView("list") },
@@ -4959,11 +4977,9 @@ function App() {
 
   if (screen === "loading") {
     return (
-      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ textAlign:"center" }}>
-          <div style={{ width:40, height:40, border:"3px solid rgba(0,201,167,0.2)", borderTop:"3px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 16px" }} />
-          <div style={{ fontFamily:"var(--font-d)", fontSize:14, color:"var(--grey3)" }}>Loading your project...</div>
-        </div>
+      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16 }}>
+        <div style={{ width:44, height:44, border:"3px solid rgba(0,201,167,0.15)", borderTop:"3px solid var(--teal)", borderRadius:"50%", animation:"spin 0.8s linear infinite", boxShadow:"0 0 20px rgba(0,201,167,0.15)" }} />
+        <div style={{ fontFamily:"var(--font-d)", fontSize:13, color:"var(--grey3)", letterSpacing:"0.05em" }}>Loading your project...</div>
       </div>
     );
   }
