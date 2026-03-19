@@ -1220,7 +1220,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
 
 
   return (
-    <div style={{ height:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)", overflow:"hidden" }}>
+    <div style={{ height: isMobile ? "auto" : "100vh", minHeight: isMobile ? "100vh" : "unset", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)", overflow: isMobile ? "visible" : "hidden" }}>
 
       <div className="rp-nav" style={{ gap:10, flexWrap:"wrap", zIndex:20, flexShrink:0 }}>
         <div style={{ display:"flex", gap:6 }}>
@@ -1258,7 +1258,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
         </div>
       </div>
 
-      <div className="rp-sidebar-layout" style={{ flex:1, display:"flex", overflow:"hidden" }}>
+      <div className="rp-sidebar-layout" style={{ flex:1, display:"flex", overflow: isMobile ? "visible" : "hidden" }}>
 
         <div className="rp-sections-panel" style={{ flexShrink:0, padding:"14px 10px", display:"flex", gap:5 }}>
           <div className="rp-show-desktop" style={{ fontSize:9, fontWeight:700, color:"var(--grey4)", letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12, paddingLeft:8 }}>Sections</div>
@@ -1281,7 +1281,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
           ))}
         </div>
 
-        <div className="rp-editor-panel" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+        <div className="rp-editor-panel" style={{ flex:1, display:"flex", flexDirection:"column", overflow: isMobile ? "visible" : "hidden", minWidth:0 }}>
           {/* Static: section title + pill */}
           <div style={{ padding:"14px 18px 10px", borderBottom:"1px solid rgba(255,255,255,0.07)", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"baseline", gap:9, marginBottom:3 }}>
@@ -1304,7 +1304,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
             </span>
           </div>
           {/* Static: formatting toolbar + modals; Scrollable: editor */}
-          <div style={{ flex:1, padding:"10px 14px 14px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          <div style={{ flex:1, padding:"10px 14px 14px", display:"flex", flexDirection:"column", overflow: isMobile ? "visible" : "hidden" }}>
 
             {/* ── Formatting toolbar ── */}
             <div style={{ display:"flex", flexWrap:"wrap", gap:2, marginBottom:0, padding:"5px 8px", background:"#f5f6f8", border:"1px solid #e2e5ea", borderRadius:"10px 10px 0 0", borderBottom:"none", flexShrink:0 }}>
@@ -1561,7 +1561,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
               onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px rgba(0,201,167,0.35), 0 4px 20px rgba(0,0,0,0.15)"; }}
               onBlur={e => { e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.14)"; }}
               data-placeholder={"Write section " + chapter.num + "." + (activeSection + 1) + " — " + sec.name + " here..."}
-              style={{ flex:1, background:"#ffffff", border:"1px solid #e2e5ea", borderRadius:"0 0 11px 11px", padding:"22px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY:"auto", cursor:"text", boxShadow:"0 2px 16px rgba(0,0,0,0.14)" }}
+              style={{ flex: isMobile ? "none" : 1, minHeight: isMobile ? 280 : "unset", background:"#ffffff", border:"1px solid #e2e5ea", borderRadius:"0 0 11px 11px", padding:"22px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY: isMobile ? "visible" : "auto", cursor:"text", boxShadow:"0 2px 16px rgba(0,0,0,0.14)" }}
             />
 
             <div style={{ marginTop:5, fontSize:11, color:"var(--grey4)", display:"flex", justifyContent:"space-between", flexShrink:0 }}>
