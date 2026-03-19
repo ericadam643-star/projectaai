@@ -1220,9 +1220,9 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
 
 
   return (
-    <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+    <div style={{ height:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)", overflow:"hidden" }}>
 
-      <div className="rp-nav" style={{ gap:10, flexWrap:"wrap", zIndex:20 }}>
+      <div className="rp-nav" style={{ gap:10, flexWrap:"wrap", zIndex:20, flexShrink:0 }}>
         <div style={{ display:"flex", gap:6 }}>
           <button onClick={onHome} className="btn-ghost" style={{ fontSize:12 }}>← Home</button>
           <button onClick={onBack} className="btn-ghost" style={{ fontSize:12 }}>Chapters</button>
