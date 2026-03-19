@@ -1282,17 +1282,20 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
         </div>
 
         <div className="rp-editor-panel" style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
-          <div style={{ padding:"14px 18px 10px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+          {/* Static: section title + pill */}
+          <div style={{ padding:"14px 18px 10px", borderBottom:"1px solid rgba(255,255,255,0.07)", flexShrink:0 }}>
             <div style={{ display:"flex", alignItems:"baseline", gap:9, marginBottom:3 }}>
               <span style={{ fontFamily:"var(--font-d)", fontSize:13, fontWeight:800, color:"var(--teal)" }}>{chapter.num}.{activeSection+1}</span>
               <span style={{ fontFamily:"var(--font-d)", fontSize:15, fontWeight:700, color:"var(--white)" }}>{sec.name}</span>
             </div>
             <span className="pill pill-teal" style={{ marginTop:2 }}>Expected: {sec.par}</span>
           </div>
-          <div style={{ margin:"10px 14px 0", background:"rgba(0,201,167,0.04)", border:"1px solid rgba(0,201,167,0.12)", borderRadius:10, padding:"10px 14px", fontSize:12, color:"rgba(168,237,226,0.8)", lineHeight:1.65 }}>
+          {/* Static: guide box */}
+          <div style={{ margin:"10px 14px 0", background:"rgba(0,201,167,0.04)", border:"1px solid rgba(0,201,167,0.12)", borderRadius:10, padding:"10px 14px", fontSize:12, color:"rgba(168,237,226,0.8)", lineHeight:1.65, flexShrink:0 }}>
             <span style={{ fontWeight:700, color:"var(--teal)" }}>Guide: </span>{sec.guide}
           </div>
-          <div style={{ margin:"8px 14px 0", display:"flex", alignItems:"center", gap:10 }}>
+          {/* Static: word count progress bar */}
+          <div style={{ margin:"8px 14px 0", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
             <div style={{ flex:1, height:3, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
               <div style={{ height:"100%", width: Math.min(100, (sectionWordCounts[activeSection] / MIN_WORDS) * 100) + "%", background: sectionWordCounts[activeSection] >= MIN_WORDS ? "#4CAF50" : "var(--teal)", borderRadius:99, transition:"width 0.3s" }} />
             </div>
@@ -1300,10 +1303,11 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
               {sectionWordCounts[activeSection] >= MIN_WORDS ? "✓ Complete" : Math.max(0, MIN_WORDS - sectionWordCounts[activeSection]) + " more words"}
             </span>
           </div>
-          <div style={{ flex:1, padding:"10px 14px 14px", display:"flex", flexDirection:"column" }}>
+          {/* Static: formatting toolbar + modals; Scrollable: editor */}
+          <div style={{ flex:1, padding:"10px 14px 14px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
             {/* ── Formatting toolbar ── */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:2, marginBottom:0, padding:"5px 8px", background:"#f5f6f8", border:"1px solid #e2e5ea", borderRadius:"10px 10px 0 0", borderBottom:"none" }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:2, marginBottom:0, padding:"5px 8px", background:"#f5f6f8", border:"1px solid #e2e5ea", borderRadius:"10px 10px 0 0", borderBottom:"none", flexShrink:0 }}>
               {/* History */}
               {[
                 { t:"↩", cmd:"undo",   title:"Undo" },
@@ -1557,10 +1561,10 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
               onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px rgba(0,201,167,0.35), 0 4px 20px rgba(0,0,0,0.15)"; }}
               onBlur={e => { e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.14)"; }}
               data-placeholder={"Write section " + chapter.num + "." + (activeSection + 1) + " — " + sec.name + " here..."}
-              style={{ flex:1, minHeight:220, background:"#ffffff", border:"1px solid #e2e5ea", borderRadius:"0 0 11px 11px", padding:"22px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY:"auto", cursor:"text", boxShadow:"0 2px 16px rgba(0,0,0,0.14)" }}
+              style={{ flex:1, background:"#ffffff", border:"1px solid #e2e5ea", borderRadius:"0 0 11px 11px", padding:"22px 26px", color:"#111827", fontSize:15, fontFamily:"'Georgia', 'Times New Roman', serif", lineHeight:2.0, outline:"none", overflowY:"auto", cursor:"text", boxShadow:"0 2px 16px rgba(0,0,0,0.14)" }}
             />
 
-            <div style={{ marginTop:5, fontSize:11, color:"var(--grey4)", display:"flex", justifyContent:"space-between" }}>
+            <div style={{ marginTop:5, fontSize:11, color:"var(--grey4)", display:"flex", justifyContent:"space-between", flexShrink:0 }}>
               <span />
               <span style={{ fontStyle:"italic" }}>Draft saved automatically</span>
             </div>
@@ -3779,10 +3783,10 @@ function SupervisorDashboard({ supervisor, onBack }) {
     const saveAll = async () => { await saveFeedback(); };
 
     return (
-      <div style={{ minHeight:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)" }}>
+      <div style={{ height:"100vh", background:"var(--navy)", display:"flex", flexDirection:"column", fontFamily:"var(--font-b)", overflow:"hidden" }}>
 
-        {/* Header */}
-        <div style={{ padding:"12px 20px", borderBottom:"1px solid #E2E8F0", display:"flex", alignItems:"center", gap:10, position:"sticky", top:0, background:"var(--navy)", zIndex:10, flexWrap:"wrap" }}>
+        {/* Header — static */}
+        <div style={{ padding:"12px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:10, background:"var(--navy)", zIndex:10, flexWrap:"wrap", flexShrink:0 }}>
           <button onClick={() => { setView("overview"); setActiveStudent(null); setActiveChapter(null); setChapterData(null); }}
             style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"6px 12px", color:"var(--grey3)", fontSize:12, cursor:"pointer", flexShrink:0, transition:"all 0.15s" }}
             onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
@@ -3802,8 +3806,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
           </button>
         </div>
 
-        {/* Lock notice */}
-        <div style={{ background:"rgba(255,112,67,0.06)", borderBottom:"1px solid rgba(255,112,67,0.15)", padding:"9px 20px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+        {/* Lock notice — static */}
+        <div style={{ background:"rgba(255,112,67,0.06)", borderBottom:"1px solid rgba(255,112,67,0.15)", padding:"9px 20px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", flexShrink:0 }}>
           <span style={{ fontSize:13 }}>🔒</span>
           <span style={{ fontSize:12, color:"#FF7043" }}>This chapter is locked for review. The student cannot edit it until you return it for revision.</span>
           {chapterData && chapterData.version && chapterData.version > 1 && (
@@ -3813,8 +3817,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
           )}
         </div>
 
-        {/* Status bar */}
-        <div style={{ padding:"10px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+        {/* Status bar — static */}
+        <div style={{ padding:"10px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", flexShrink:0 }}>
           <span style={{ fontSize:11, color:"var(--grey3)", marginRight:4, fontWeight:600 }}>Status:</span>
           {Object.entries(statusConfig).map(([key, cfg]) => (
             <button key={key} onClick={() => { setStatus(key); setFeedbackSaved(false); }}
@@ -3838,8 +3842,8 @@ function SupervisorDashboard({ supervisor, onBack }) {
           </div>
         </div>
 
-        {/* Scrollable content */}
-        <div style={{ flex:1, overflowY:"auto", padding:"24px 22px", maxWidth:820, width:"100%", margin:"0 auto" }}>
+        {/* Scrollable content area — only this scrolls */}
+        <div style={{ flex:1, overflowY:"auto", padding:"20px 22px 40px", maxWidth:820, width:"100%", margin:"0 auto" }}>
 
           {/* AI feedback banner */}
           {aiSuggestion && (
@@ -3950,21 +3954,21 @@ function SupervisorDashboard({ supervisor, onBack }) {
                   )}
                 </div>
 
-                {/* Student text — read-only */}
+                {/* Student text — read-only, independently scrollable */}
                 <div style={{ background:"#ffffff", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
                   {hasDraft ? (
                     <div
                       id={"sec-text-" + i + "-" + activeChapter}
                       onMouseUp={() => handleTextSelection(i)}
                       onTouchEnd={() => handleTouchSelection(i)}
-                      style={{ padding:"20px 26px", fontSize:15, color:"#111827", lineHeight:2.0, whiteSpace:"pre-wrap", userSelect:"text", WebkitUserSelect:"text", cursor:"text", fontFamily:"Georgia, 'Times New Roman', serif" }}>
+                      style={{ padding:"20px 26px", maxHeight:320, overflowY:"auto", fontSize:15, color:"#111827", lineHeight:2.0, whiteSpace:"pre-wrap", userSelect:"text", WebkitUserSelect:"text", cursor:"text", fontFamily:"Georgia, 'Times New Roman', serif" }}>
                       {drafts[i]}
                     </div>
                   ) : (
                     <div style={{ padding:"18px 26px", fontSize:12, color:"#9ca3af", fontStyle:"italic" }}>No content submitted for this section.</div>
                   )}
                   {hasDraft && (
-                    <div style={{ fontSize:10, color:"#A0AEC0", marginTop:8, fontStyle:"italic" }}>
+                    <div style={{ padding:"0 26px 10px", fontSize:10, color:"#9ca3af", fontStyle:"italic" }}>
                       Select text and release to add a highlight comment
                     </div>
                   )}
