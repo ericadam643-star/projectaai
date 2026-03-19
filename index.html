@@ -2628,7 +2628,11 @@ function ProfileModal({ project, account, initials, submittedCount, totalWords, 
     { label:"University",     value: project.uni },
     { label:"Project Topic",  value: project.topic },
     { label:"Supervisor",     value: project.supervisorName ? project.supervisorName.replace("Code: ","") : "Not linked" },
-    { label:"Supervisor Code",value: project.supervisorCode || project.supervisorCodeKey ? (project.supervisorCode || project.supervisorCodeKey.replace("sup_code_","").slice(0,3).toUpperCase() + "-" + project.supervisorCodeKey.replace("sup_code_","").slice(3,6).toUpperCase()) : "—" },
+    { label:"Supervisor Code", value: project.supervisorCode
+        ? project.supervisorCode
+        : (project.supervisorCodeKey
+            ? (project.supervisorCodeKey.replace("sup_code_","").slice(0,3).toUpperCase() + "-" + project.supervisorCodeKey.replace("sup_code_","").slice(3,6).toUpperCase())
+            : "—") },
   ];
 
   return (
@@ -2933,6 +2937,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
   // ── DESKTOP LAYOUT ─────────────────────────────────────────────────────────
   if (isDesktop) {
     return (
+      <>
       <div style={{ minHeight:"100vh", background:"#F0F4F8", fontFamily:"var(--font-b)" }}>
 
         {/* Desktop top nav */}
@@ -3051,6 +3056,7 @@ function StudentDashboard({ project, allDrafts, account, onGoToChapter, onGoToCh
 
       {/* Profile Modal */}
       {showProfile && <ProfileModal project={project} account={account} initials={initials} submittedCount={submittedCount} totalWords={totalWords} pct={pct} onClose={() => setShowProfile(false)} onSignOut={onSignOut} />}
+      </>
     );
   }
 
@@ -5431,6 +5437,7 @@ function App() {
         <StudentDashboard
           project={project}
           allDrafts={allDrafts}
+          account={{ email: studentEmail }}
           onGoToChapter={ch => {
               // Don't mark feedback as read just from opening writing screen
               // Feedback only clears when student views it via View feedback or Revise & Resubmit
