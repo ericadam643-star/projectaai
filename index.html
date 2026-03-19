@@ -41,8 +41,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 
-  <!-- EmailJS — real email sending from the browser, no backend needed -->
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script>
     // ── EmailJS config ────────────────────────────────────────────────────────
     // To activate real email confirmations:
@@ -52,16 +50,22 @@
     //      {{to_email}}  {{to_name}}  {{role}}  {{supervisor_code}}  {{app_name}}
     // 4. Copy your Public Key from Account → API Keys
     // 5. Replace the placeholder values below
-    window.EMAILJS_CONFIG = {
-      publicKey:   "YOUR_PUBLIC_KEY",       // e.g. "user_abc123XYZ"
-      serviceId:   "YOUR_SERVICE_ID",       // e.g. "service_gmail"
-      templateId:  "YOUR_TEMPLATE_ID",      // e.g. "template_welcome"
-      configured:  false                    // set to true after filling in above
+    // ── Email confirmation config ─────────────────────────────────────────────
+    // Using Resend (resend.com) — 3,000 free emails/month, no service limits
+    //
+    // Setup (5 minutes):
+    // 1. Sign up free at https://resend.com
+    // 2. Dashboard → API Keys → Create API Key → copy it
+    // 3. Go to Domains → Add Domain (or use onboarding@resend.dev for testing)
+    // 4. Replace the values below
+    window.RESEND_CONFIG = {
+      apiKey:    re_6Ut3dde6_9ckHUQTtwJC2iXcWTCmypErF
+      fromEmail: "onboarding@resend.dev", // use this for testing; replace with your domain later
+      fromName:  "Projecta",
+      configured: true
     };
-    // Initialise only when keys are set
-    if (window.EMAILJS_CONFIG.publicKey !== "YOUR_PUBLIC_KEY") {
-      emailjs.init({ publicKey: window.EMAILJS_CONFIG.publicKey });
-      window.EMAILJS_CONFIG.configured = true;
+    if (window.RESEND_CONFIG.apiKey !== "YOUR_RESEND_API_KEY") {
+      window.RESEND_CONFIG.configured = true;
     }
   </script>
 
@@ -2134,22 +2138,56 @@ const DEPTS_AUTH = ["Economics","Accounting","Business Administration","Banking 
 
 // ── Email confirmation sender ─────────────────────────────────────────────
 async function sendConfirmationEmail({ toEmail, toName, role, supervisorCode }) {
-  const cfg = window.EMAILJS_CONFIG;
+  const cfg = window.RESEND_CONFIG;
   if (!cfg || !cfg.configured) return { ok: false, reason: "not_configured" };
   try {
-    const templateParams = {
-      to_email:        toEmail,
-      to_name:         toName,
-      role:            role === "supervisor" ? "Supervisor" : role === "institution" ? "Institution Administrator" : "Student",
-      supervisor_code: supervisorCode || "",
-      app_name:        "Projecta",
-      year:            new Date().getFullYear(),
-    };
-    await emailjs.send(cfg.serviceId, cfg.templateId, templateParams);
+    const roleLabel = role === "supervisor" ? "Supervisor" : role === "institution" ? "Institution Administrator" : "Student";
+    const supLine   = supervisorCode ? `<p><strong>Your Supervisor Code:</strong> <span style="font-size:22px;font-weight:900;letter-spacing:4px;color:#0D3B33">${supervisorCode}</span><br><small>Share this code with your students so they can connect to you.</small></p>` : "";
+
+    const html = `
+<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f4f8;font-family:'DM Sans',sans-serif">
+<div style="max-width:520px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+  <div style="background:linear-gradient(135deg,#0B2A2A,#0D3B33);padding:32px 32px 28px">
+    <div style="font-size:28px;font-weight:900;color:#00C9A7;letter-spacing:-0.5px;margin-bottom:4px">projecta</div>
+    <div style="font-size:13px;color:rgba(0,201,167,0.6);letter-spacing:0.15em;text-transform:uppercase">Smarter Projects</div>
+  </div>
+  <div style="padding:32px">
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1A2E42">Welcome, ${toName}! 🎓</h2>
+    <p style="color:#4A5568;font-size:14px;line-height:1.7;margin:0 0 20px">Your <strong>Projecta</strong> account has been created successfully.</p>
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:18px 20px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;color:#8892A0;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Account Details</div>
+      <p style="margin:4px 0;font-size:13px;color:#2D3748"><strong>Name:</strong> ${toName}</p>
+      <p style="margin:4px 0;font-size:13px;color:#2D3748"><strong>Email:</strong> ${toEmail}</p>
+      <p style="margin:4px 0;font-size:13px;color:#2D3748"><strong>Role:</strong> ${roleLabel}</p>
+    </div>
+    ${supLine}
+    <p style="font-size:13px;color:#718096;line-height:1.7;margin:0">You can now log in and start using Projecta to manage your final year project.</p>
+  </div>
+  <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:18px 32px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#A0AEC0">© ${new Date().getFullYear()} Projecta · Built for Nigerian universities</p>
+  </div>
+</div>
+</body></html>`;
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + cfg.apiKey,
+      },
+      body: JSON.stringify({
+        from:    cfg.fromName + " <" + cfg.fromEmail + ">",
+        to:      [toEmail],
+        subject: "Welcome to Projecta, " + toName + "!",
+        html:    html,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Resend error " + res.status);
     return { ok: true };
   } catch(e) {
-    console.warn("EmailJS send failed:", e);
-    return { ok: false, reason: e.text || e.message || "unknown" };
+    console.warn("Resend email failed:", e);
+    return { ok: false, reason: e.message || "unknown" };
   }
 }
 
