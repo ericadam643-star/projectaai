@@ -2191,6 +2191,45 @@ async function sendConfirmationEmail({ toEmail, toName, role, supervisorCode }) 
   }
 }
 
+// ── General notification email (submission / feedback alerts) ─────────────
+async function sendNotificationEmail({ toEmail, toName, subject, heading, bodyHtml }) {
+  const cfg = window.RESEND_CONFIG;
+  if (!cfg || !cfg.configured) return { ok: false, reason: "not_configured" };
+  try {
+    const html = `
+<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f0f4f8;font-family:'DM Sans',sans-serif">
+<div style="max-width:520px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+  <div style="background:linear-gradient(135deg,#0B2A2A,#0D3B33);padding:24px 32px">
+    <div style="font-size:22px;font-weight:900;color:#00C9A7;letter-spacing:-0.5px">projecta</div>
+  </div>
+  <div style="padding:32px">
+    <h2 style="margin:0 0 16px;font-size:19px;font-weight:800;color:#1A2E42">${heading}</h2>
+    <div style="font-size:14px;color:#4A5568;line-height:1.75">${bodyHtml}</div>
+  </div>
+  <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 32px;text-align:center">
+    <p style="margin:0;font-size:11px;color:#A0AEC0">© ${new Date().getFullYear()} Projecta · You received this because you have an account on Projecta.</p>
+  </div>
+</div>
+</body></html>`;
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.apiKey },
+      body: JSON.stringify({
+        from:    cfg.fromName + " <" + cfg.fromEmail + ">",
+        to:      [toEmail],
+        subject: subject,
+        html:    html,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Resend error " + res.status);
+    return { ok: true };
+  } catch(e) {
+    console.warn("Notification email failed:", e);
+    return { ok: false, reason: e.message || "unknown" };
+  }
+}
+
 function AuthScreen({ onLogin, savedSupervisor, onReturnToDashboard, onSwitchAccount }) {
   const [mode,     setMode]     = useState("login");   // "login" | "signup"
   const [role,     setRole]     = useState("student"); // "student" | "supervisor"
@@ -3587,14 +3626,39 @@ function SupervisorDashboard({ supervisor, onBack }) {
       const resubFlagKey = supervisor.codeKey + "_resub_" + sKeyFb + "_ch" + chNum;
       await safeDel(resubFlagKey);
 
-      // Notify student
+      // Notify student — in-app
       const stuKey = activeStudent.name.trim().toLowerCase().replace(/[^a-z0-9]/gi,"_");
       const statusMsg = status === "approved" ? "✅ Approved" : status === "minor" ? "⚠️ Minor revision needed" : status === "major" ? "🔴 Major revision needed" : "💬 Feedback received";
       pushNotification(stuKey, statusMsg + " — Chapter " + chNum + " feedback from your supervisor is ready.");
 
-      // Notify supervisor themselves
+      // Notify supervisor themselves — in-app
       const supKey = (supervisor.code || "").replace(/[^a-z0-9]/gi,"_").toLowerCase();
       pushNotification(supKey, "✓ Feedback saved for " + activeStudent.name + " — Chapter " + chNum + ".");
+
+      // ── Email notification to student ──────────────────────────────────────
+      const stuRecord = (SUP_CACHE[supervisor.codeKey] && SUP_CACHE[supervisor.codeKey].students || [])
+        .find(s => s.studentName === activeStudent.name);
+      const stuEmail = stuRecord && stuRecord.email ? stuRecord.email : null;
+      if (stuEmail) {
+        const chTitle = ["Introduction","Literature Review","Research Methodology","Data Presentation and Analysis","Summary, Conclusion and Recommendations"][chNum-1] || "Chapter " + chNum;
+        const statusLabel = status === "approved" ? "✅ Approved" : status === "minor" ? "⚠️ Minor Revision Needed" : status === "major" ? "🔴 Major Revision Needed" : "💬 Feedback Ready";
+        const statusColor = status === "approved" ? "#276749" : status === "minor" ? "#B7791F" : status === "major" ? "#C53030" : "#2B6CB0";
+        const statusBg    = status === "approved" ? "#F0FFF4" : status === "minor" ? "#FFFBEB" : status === "major" ? "#FFF5F5" : "#EBF8FF";
+        sendNotificationEmail({
+          toEmail:  stuEmail,
+          toName:   activeStudent.name,
+          subject:  statusLabel + " — Chapter " + chNum + " feedback from your supervisor",
+          heading:  "Supervisor Feedback Ready",
+          bodyHtml: `
+            <div style="background:${statusBg};border:1px solid ${statusColor}44;border-radius:10px;padding:14px 18px;margin-bottom:18px">
+              <div style="font-size:16px;font-weight:800;color:${statusColor}">${statusLabel}</div>
+              <div style="font-size:13px;color:#4A5568;margin-top:4px">Chapter ${chNum}: ${chTitle}</div>
+            </div>
+            <p>Your supervisor <strong>${supervisor.name}</strong> has reviewed your chapter and left feedback.</p>
+            ${feedback ? `<div style="background:#F8FAFC;border-left:3px solid #CBD5E0;padding:12px 16px;margin:14px 0;font-size:13px;color:#2D3748;line-height:1.7">${feedback.slice(0, 300)}${feedback.length > 300 ? "..." : ""}</div>` : ""}
+            <p>Log in to Projecta to read the full feedback${status === "minor" || status === "major" ? " and revise your chapter" : ""}.</p>`,
+        });
+      }
     } catch(e) { console.error("saveFeedback storage error:", e); }
   };
 
@@ -5527,19 +5591,37 @@ function App() {
       // Re-persist the whole profile with submissions
       if (prof) safeSet(p.supervisorCodeKey, JSON.stringify(prof));
 
-      // Notify supervisor
+      // Notify supervisor — in-app
       const supKey = p.supervisorCode ? p.supervisorCode.replace(/[^a-z0-9]/gi,"_").toLowerCase() : p.supervisorCodeKey.replace(/[^a-z0-9]/gi,"_");
       const submitMsg = version > 1
         ? "🔄 " + p.studentName + " resubmitted Chapter " + num + " (v" + version + ") — ready for re-review."
         : "📥 " + p.studentName + " submitted Chapter " + num + " for review.";
       pushNotification(supKey, submitMsg);
 
-      // Notify student themselves
+      // Notify student themselves — in-app
       const stuKey = (p.studentName || "").trim().toLowerCase().replace(/[^a-z0-9]/gi,"_");
       const stuMsg = version > 1
         ? "🔄 Chapter " + num + " revision (v" + version + ") submitted to your supervisor."
         : "✅ Chapter " + num + " submitted to your supervisor successfully.";
       pushNotification(stuKey, stuMsg);
+
+      // ── Email notification to supervisor ──────────────────────────────────
+      const supProf = SUP_CACHE[p.supervisorCodeKey];
+      const supEmail = supProf && supProf.email ? supProf.email : null;
+      if (supEmail) {
+        const chTitle = ["Introduction","Literature Review","Research Methodology","Data Presentation and Analysis","Summary, Conclusion and Recommendations"][num-1] || "Chapter " + num;
+        sendNotificationEmail({
+          toEmail:  supEmail,
+          toName:   supProf.name || "Supervisor",
+          subject:  (version > 1 ? "🔄 Resubmission" : "📥 New Submission") + " — " + p.studentName + " Ch." + num,
+          heading:  version > 1 ? "Chapter Resubmitted" : "New Chapter Submission",
+          bodyHtml: `
+            <p><strong>${p.studentName}</strong> has ${version > 1 ? "resubmitted" : "submitted"} <strong>Chapter ${num}: ${chTitle}</strong> for your review.</p>
+            ${version > 1 ? `<p>This is <strong>Revision v${version}</strong>. Their previous submission has been replaced.</p>` : ""}
+            <p><strong>Project topic:</strong> ${p.topic}<br><strong>Department:</strong> ${p.dept}</p>
+            <p>Log in to Projecta to review and leave feedback.</p>`,
+        });
+      }
     }
   };
 
