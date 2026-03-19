@@ -1011,17 +1011,57 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
     setAiPanel("questions");
     setQuestions([]); setQAnswers({}); setQLoading(true);
     try {
-      const sys = sysBase + " You generate guided writing questions for Nigerian university final-year project sections.";
-      const prompt = "Generate exactly 4 focused questions to guide a student writing section " + chapter.num + "." + (activeSection+1) + " called \"" + sec.name + "\" on the topic: \"" + project.topic + "\". Department: " + project.dept + ".\n\nRules:\n- Each question should draw out one specific paragraph of academic content\n- Questions should be concrete and answerable in 2-4 sentences\n- Start simple, build to deeper analysis\n- Do NOT ask yes/no questions\n- Format as a JSON array of strings, nothing else. Example: [\"Q1\", \"Q2\", \"Q3\", \"Q4\"]";
+      const sys = sysBase + " You are a rigorous academic writing coach for Nigerian university final-year projects. You design strategic questions that force the student to engage with scholarly sources so that citations arise naturally from their answers.";
+
+      // Determine whether this section lives in a citation-heavy chapter
+      const needsCitations = chapter.num <= 3; // Ch1, Ch2, Ch3 need citations; Ch4/Ch5 cite own findings
+      const isCh2 = chapter.num === 2;
+      const isCh3 = chapter.num === 3;
+      const isCh4 = chapter.num === 4;
+      const isCh5 = chapter.num === 5;
+
+      const citationRule = needsCitations
+        ? "CRITICAL: At least 2 of your 4 questions MUST ask the student to name specific scholars, authors, or studies (with year if they know it) that support a claim. This is non-negotiable — it forces citations to emerge naturally from their answers."
+        : isCh4
+        ? "At least 1 question must ask the student to compare their findings to a scholar or study they cited in Chapter 2, so the discussion section links back to the literature."
+        : "At least 1 question must ask the student to reference the specific gap they identified in Chapter 2 or the scholar who influenced their approach.";
+
+      const sectionHint = isCh2
+        ? "This is a Literature Review section. Every question should require the student to mention real authors, theories, dates, or studies. Questions should extract WHO said WHAT and WHEN."
+        : isCh3
+        ? "This is a Methodology section. Questions should ask the student to justify their choices by citing the scholars who validate that research design or analytical method."
+        : isCh4
+        ? "This is a Data Analysis section. Questions should push the student to interpret findings by comparing them to what scholars in Chapter 2 predicted or found."
+        : isCh5
+        ? "This is a Conclusion section. Questions should connect findings back to named scholars and the specific gap identified in the literature."
+        : "This is an Introduction chapter. Questions should push the student to cite scholars who have documented this problem, and researchers who justify its significance.";
+
+      const prompt =
+        "Generate exactly 5 strategic questions to guide a student writing section " + chapter.num + "." + (activeSection+1) +
+        " called \"" + sec.name + "\" for a project on: \"" + project.topic + "\". Department: " + project.dept + ".\n\n" +
+        "Section guide: " + sec.guide + "\n\n" +
+        sectionHint + "\n\n" +
+        citationRule + "\n\n" +
+        "Additional question rules:\n" +
+        "- Each question should extract exactly one substantive idea that becomes one paragraph\n" +
+        "- Questions must be ordered logically: broad context → specific argument → evidence → implication\n" +
+        "- Questions that require sources must explicitly ask: 'Which scholar or study supports this? State the author and year.'\n" +
+        "- Do NOT ask yes/no questions\n" +
+        "- Do NOT ask vague questions like 'What do you think?' — every question must target a specific academic claim\n" +
+        "- Format: JSON array of strings only, no other text. Example: [\"Q1\", \"Q2\", \"Q3\", \"Q4\", \"Q5\"]";
+
       const resp = await callAI([{ role:"user", content:prompt }], sys);
-      // Parse JSON array from response
       const clean = resp.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setQuestions(Array.isArray(parsed) ? parsed : []);
     } catch(e) {
-      // Fallback: split by newlines if JSON parse fails
-      const lines = (typeof e === "string" ? e : "").split("\n").filter(l => l.trim().match(/^["\d]/));
-      setQuestions(lines.length > 0 ? lines : ["What is the main problem or gap this section addresses?", "What evidence or context supports your argument here?", "How does this connect to your research objectives?", "What conclusion or insight does this section establish?"]);
+      setQuestions([
+        "What is the specific problem or gap in existing knowledge that this section addresses? Name at least one scholar who has documented this gap (author, year).",
+        "What does the dominant academic view say about this topic? Which scholar or study best represents this position — state the author and year.",
+        "Is there a contradicting perspective or limitation in the existing research? Who identified it, and what did they argue?",
+        "How does the evidence you have cited connect directly to your research topic or objectives?",
+        "What does this section ultimately establish or prove, and why does it matter for the rest of your project?"
+      ]);
     }
     setQLoading(false);
   };
@@ -1032,22 +1072,30 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
     if (answered.length === 0) return;
     setQBuilding(true);
     try {
-      const sys = sysBase + " You convert student answers into polished academic prose for Nigerian university final-year projects. Write in third person, formal academic English. Do not add information the student did not provide. Always respect the required paragraph count exactly.";
+      const sys = sysBase +
+        " You convert student answers into polished academic prose for Nigerian university final-year projects." +
+        " Write in third person, formal academic English." +
+        " Do not add information the student did not provide." +
+        " CITATION RULE: Wherever the student has mentioned an author name, a scholar, or a year, format it as a proper in-text citation using APA style — e.g. (Soludo, 2023) or Soludo (2023) argues that..." +
+        " If the student wrote something like 'according to Smith 2019' or 'Smith said in 2019', convert it to Smith (2019)." +
+        " If the student named only an author without a year, write (Author, n.d.) as a placeholder." +
+        " Never fabricate citations — only use what the student provided." +
+        " Always respect the required paragraph count exactly.";
+
       const pairs = questions.map((q, i) => "Q: " + q + "\nA: " + (qAnswers[i] || "(not answered)")).join("\n\n");
-      // Parse min required paragraphs from sec.par e.g. "3-4 paragraphs" → 3, "2 paragraphs" → 2
       const parMatch = sec.par.match(/(\d+)/);
       const minRequired = parMatch ? parseInt(parMatch[1]) : 2;
       const answeredCount = questions.filter((_, i) => (qAnswers[i] || "").trim().length > 10).length;
       const stillNeeded = Math.max(0, minRequired - answeredCount);
 
       if (stillNeeded > 0) {
-        // Not enough answers — tell the student how many more they need
         setQBuilding(false);
         alert("Please answer at least " + minRequired + " question" + (minRequired > 1 ? "s" : "") + " before building your draft.\n\nYou have answered " + answeredCount + " so far. You need " + stillNeeded + " more.");
         return;
       }
 
-      const prompt = "Convert these question-answer pairs into polished academic paragraphs for section \"" + sec.name + "\" (Chapter " + chapter.num + ") of a project on: \"" + project.topic + "\"\n\n" +
+      const prompt =
+        "Convert these question-answer pairs into polished academic paragraphs for section \"" + sec.name + "\" (Chapter " + chapter.num + ") of a project on: \"" + project.topic + "\"\n\n" +
         "REQUIRED LENGTH: " + sec.par + " (mandatory — write exactly this many paragraphs).\n" +
         "If the student has answered more questions than required, merge related answers into fewer paragraphs.\n\n" +
         pairs + "\n\n" +
@@ -1056,13 +1104,13 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
         "2. Each paragraph must be 4-6 sentences of formal academic prose\n" +
         "3. Use third person throughout\n" +
         "4. Do not add facts or claims the student did not mention\n" +
-        "5. Output only the paragraphs — no headings, labels, or numbering";
+        "5. CITATIONS: Convert every author/scholar/year the student mentioned into a proper APA in-text citation — e.g. (Smith, 2020) or Smith (2020) argues that... Do NOT invent any citations.\n" +
+        "6. Output only the paragraphs — no headings, labels, or numbering";
+
       const resp = await callAI([{ role:"user", content:prompt }], sys);
-      // Insert into editor
       if (editorRef.current) {
         const paragraphs = resp.trim().split(/\n+/).filter(p => p.trim());
         editorRef.current.innerHTML = paragraphs.map(p => "<p>" + p.trim() + "</p>").join("");
-        // Trigger save
         const e = new Event("input", { bubbles:true });
         editorRef.current.dispatchEvent(e);
       }
@@ -1592,7 +1640,7 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                 {!qLoading && questions.length > 0 && (
                   <div>
                     <div style={{ fontSize:10, color:"var(--teal)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>
-                      Answer each question — your draft will be built automatically
+                      Answer each question — name authors & years where asked
                     </div>
                     {questions.map((q, i) => (
                       <div key={i} style={{ marginBottom:14 }}>
@@ -1615,8 +1663,8 @@ function WritingScreen({ project, chapter, initialDrafts, onBack, onHome, onComp
                       style={{ width:"100%", background:"var(--teal)", color:"var(--navy)", border:"none", borderRadius:9, padding:"11px", fontSize:13, fontFamily:"var(--font-d)", fontWeight:700, cursor:"pointer", marginTop:4 }}>
                       {qBuilding ? "Building your draft..." : "✓ Build my draft →"}
                     </button>
-                    <div style={{ fontSize:10, color:"var(--grey3)", textAlign:"center", marginTop:8, lineHeight:1.5 }}>
-                      Answer at least one question. Your responses will be turned into academic prose and placed in the editor.
+                    <div style={{ fontSize:10, color:"var(--grey3)", textAlign:"center", marginTop:8, lineHeight:1.55 }}>
+                      For questions that ask for a scholar or study — name the author and year. These become your in-text citations automatically.
                     </div>
                   </div>
                 )}
